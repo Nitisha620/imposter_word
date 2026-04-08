@@ -8,7 +8,7 @@ final gameProvider = StateNotifierProvider<GameController, GameState>((ref) {
 class GameController extends StateNotifier<GameState> {
   GameController() : super(GameState.initial());
 
-  void createRoom(String name) {
+  void createRoom(String name, String? mode) {
     state = state.copyWith(
       roomCode: "ABC123",
       myId: "user1",
@@ -44,5 +44,37 @@ class GameController extends StateNotifier<GameState> {
 
   void reset() {
     state = GameState.initial();
+  }
+
+  void setImposterCount(int count) {}
+
+  void kickPlayer(String playerId) {}
+
+  void setTimer(int time) {}
+
+  void setMaxPlayers(int maxPlayerCount) {}
+
+  void setGameMode(String mode) {}
+
+  void sendChat(String text) {}
+
+  void advancePhase() {}
+
+  void markReady() {
+    state = state.copyWith(phase: GamePhase.discussion);
+  }
+
+  void changeWord() {}
+
+  void backToLobby() {}
+
+  void startVote() {
+    state = state.copyWith(phase: GamePhase.voting);
+  }
+
+  void castVote(String id) {}
+
+  void finalizeVote() {
+    state = state.copyWith(phase: GamePhase.results);
   }
 }
