@@ -18,19 +18,18 @@ class AppView extends ConsumerWidget {
 
     switch (state.phase) {
       case GamePhase.home:
-        return HomeScreen(
-          onCreate: (name, mode) =>
-              ref.read(gameProvider.notifier).createRoom(name, mode),
-          onJoin: (code, name) =>
-              ref.read(gameProvider.notifier).joinRoom(code, name),
-        );
+        return HomeScreen();
 
+      // In AppView, replace the lobby case:
       case GamePhase.lobby:
         return LobbyScreen(
           roomCode: state.roomCode,
           myId: state.myId,
           isHost: state.isHost,
           roomState: state.roomState,
+          // These two were hardcoded before — now read from state
+          error: state.error.isEmpty ? null : state.error,
+          chatMessages: state.chatMessages,
           onStart: () => ref.read(gameProvider.notifier).startGame(),
           onImposterCount: (n) =>
               ref.read(gameProvider.notifier).setImposterCount(n),
@@ -40,6 +39,7 @@ class AppView extends ConsumerWidget {
               ref.read(gameProvider.notifier).setMaxPlayers(n),
           onGameMode: (m) => ref.read(gameProvider.notifier).setGameMode(m),
           onSendChat: (t) => ref.read(gameProvider.notifier).sendChat(t),
+          onLeave: () => ref.read(gameProvider.notifier).leave(),
         );
 
       case GamePhase.reveal:
@@ -58,8 +58,8 @@ class AppView extends ConsumerWidget {
           roomState: state.roomState,
           myId: state.myId,
           isHost: state.isHost,
-          isEliminated: false /* state.isEliminated */,
-          chatMessages: [] /* state.chatMessages */,
+          isEliminated: state.isEliminated,
+          chatMessages: state.chatMessages,
           onSendChat: (t) => ref.read(gameProvider.notifier).sendChat(t),
           onStartVote: () => ref.read(gameProvider.notifier).startVote(),
         );
@@ -69,7 +69,7 @@ class AppView extends ConsumerWidget {
           roomState: state.roomState,
           myId: state.myId,
           isHost: state.isHost,
-          isEliminated: false /* state.isEliminated */,
+          isEliminated: state.isEliminated,
           onCastVote: (id) => ref.read(gameProvider.notifier).castVote(id),
           onFinalize: () => ref.read(gameProvider.notifier).finalizeVote(),
           onStartDiscussion: () =>

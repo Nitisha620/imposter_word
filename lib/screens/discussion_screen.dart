@@ -3,6 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/chat_message.dart';
+
 // ── Palette ────────────────────────────────────────────────────────────────
 const _bg = Color(0xFF0A0814);
 const _surface = Color(0xFF13111F);
@@ -26,17 +28,6 @@ const _avatarColors = [
   Color(0xFFA3E635),
   Color(0xFFFB923C),
 ];
-
-// ── Data models (replace with your actual state models) ────────────────────
-class ChatMessage {
-  final String id, senderId, senderName, text;
-  const ChatMessage({
-    required this.id,
-    required this.senderId,
-    required this.senderName,
-    required this.text,
-  });
-}
 
 class EliminatedEntry {
   final String id, name;
@@ -92,8 +83,8 @@ class _DiscussionScreenState extends ConsumerState<DiscussionScreen>
   Map<String, dynamic> get _players =>
       (widget.roomState?.players as Map<String, dynamic>?) ?? {};
 
-  bool get _isImposter =>
-      (_assignments[widget.myId]?['role'] as String?) == 'imposter';
+  bool get _isImposter => false;
+      /* (_assignments[widget.myId]?['role'] as String?) == 'imposter'; */
 
   List<EliminatedEntry> get _eliminatedEntries {
     final raw = /* (widget.roomState?.eliminatedSoFar as List?) ?? */ [];
@@ -109,11 +100,11 @@ class _DiscussionScreenState extends ConsumerState<DiscussionScreen>
 
   List<MapEntry<String, dynamic>> get _allPlayers {
     final list = _players.entries.toList();
-    list.sort(
+    /* ist.sort(
       (a, b) => ((a.value['joinedAt'] as int?) ?? 0).compareTo(
         (b.value['joinedAt'] as int?) ?? 0,
       ),
-    );
+    ); */
     return list;
   }
 

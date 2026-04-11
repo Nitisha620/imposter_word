@@ -1,57 +1,51 @@
 import 'dart:async';
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
+import '../models/chat_message.dart';
 import '../state/player_info.dart';
 import '../state/room_state.dart';
 
 // ─── Colour palette (shared with HomeScreen) ─────────────────────────────────
-const _bg       = Color(0xFF0B0F1A);
-const _card     = Color(0xFF111827);
-const _border   = Color(0xFF1E2740);
-const _purple   = Color(0xFF7C6EF5);
+const _bg = Color(0xFF0B0F1A);
+const _card = Color(0xFF111827);
+const _border = Color(0xFF1E2740);
+const _purple = Color(0xFF7C6EF5);
 const _purpleDim = Color(0xFF4B44A0);
-const _white70  = Color(0xB3FFFFFF);
-const _white38  = Color(0x61FFFFFF);
-const _white12  = Color(0x1FFFFFFF);
-const _green    = Color(0xFF34D399);
-const _errorBg  = Color(0xFFE53935);
+const _white70 = Color(0xB3FFFFFF);
+const _white38 = Color(0x61FFFFFF);
+const _white12 = Color(0x1FFFFFFF);
+const _green = Color(0xFF34D399);
+const _errorBg = Color(0xFFE53935);
 
 const _avatarColors = [
-  Color(0xFF6D62F5), Color(0xFFF87171), Color(0xFF34D399), Color(0xFFFBBF24),
-  Color(0xFF38BDF8), Color(0xFFF472B6), Color(0xFFA3E635), Color(0xFFFB923C),
-  Color(0xFFE879F9), Color(0xFF2DD4BF),
+  Color(0xFF6D62F5),
+  Color(0xFFF87171),
+  Color(0xFF34D399),
+  Color(0xFFFBBF24),
+  Color(0xFF38BDF8),
+  Color(0xFFF472B6),
+  Color(0xFFA3E635),
+  Color(0xFFFB923C),
+  Color(0xFFE879F9),
+  Color(0xFF2DD4BF),
 ];
 
 const _timerPresets = [0, 60, 120, 180, 300];
 
-// ─── Data models (keep in sync with your game_state.dart) ─────────────────────
-
-
-
-class ChatMessage {
-  final String id;
-  final String senderId;
-  final String senderName;
-  final String text;
-  const ChatMessage({
-    required this.id,
-    required this.senderId,
-    required this.senderName,
-    required this.text,
-  });
-}
+// ─── Data models (keep in sync with your game_state.dart) ────────────────────
 
 // ─── LobbyScreen ─────────────────────────────────────────────────────────────
 
-class LobbyScreen extends StatefulWidget {
+class LobbyScreen extends ConsumerStatefulWidget {
   final String roomCode;
   final String myId;
   final bool isHost;
   final RoomState roomState;
   final List<ChatMessage> chatMessages;
+  final VoidCallback onLeave;
   final String? error;
 
   final VoidCallback onStart;
@@ -77,17 +71,18 @@ class LobbyScreen extends StatefulWidget {
     required this.onPlayerCount,
     required this.onGameMode,
     required this.onSendChat,
+    required this.onLeave,
   });
 
   @override
-  State<LobbyScreen> createState() => _LobbyScreenState();
+  ConsumerState<LobbyScreen> createState() => _LobbyScreenState();
 }
 
-class _LobbyScreenState extends State<LobbyScreen> {
+class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   bool _copied = false;
   String? _kickConfirm;
   Timer? _kickTimer;
-  final _chatCtrl    = TextEditingController();
+  final _chatCtrl = TextEditingController();
   final _chatScrollCtrl = ScrollController();
   bool _showChat = false;
 
@@ -157,6 +152,31 @@ class _LobbyScreenState extends State<LobbyScreen> {
     return '${t ~/ 60} min';
   }
 
+  @override
+  void didUpdateWidget(LobbyScreen old) {
+    super.didUpdateWidget(old);
+    // Mirror: if (impCount > maxImp && isHost) onImposterCount(maxImp)
+    if (widget.isHost && _impCount > _maxImp) {
+      // Post-frame to avoid calling setState during build
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        widget.onImposterCount(_maxImp);
+      });
+    }
+
+    // Mirror: useEffect on chatMessages — scroll to bottom when new message arrives
+    if (widget.chatMessages.length != old.chatMessages.length) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_chatScrollCtrl.hasClients) {
+          _chatScrollCtrl.animateTo(
+            _chatScrollCtrl.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 300),
+            curve: Curves.easeOut,
+          );
+        }
+      });
+    }
+  }
+
   // ── build ──────────────────────────────────────────────────────────────────
 
   @override
@@ -203,67 +223,102 @@ class _LobbyScreenState extends State<LobbyScreen> {
 
   Widget _buildCodeHero() {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
       decoration: BoxDecoration(
         color: _card,
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: _border),
       ),
-      child: Column(
+      child: Stack(
         children: [
-          Text(
-            'LOBBY ACCESS CODE',
-            style: GoogleFonts.barlow(
-              fontSize: 11,
-              fontWeight: FontWeight.w700,
-              color: _white38,
-              letterSpacing: 2,
+          // 🔴 LEAVE BUTTON (TOP RIGHT)
+          Positioned(
+            top: 10,
+            right: 10,
+            child: GestureDetector(
+              onTap: widget.onLeave,
+              child: Container(
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 6,
+                ),
+                decoration: BoxDecoration(
+                  color: Colors.red.withOpacity(0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.withOpacity(0.5)),
+                ),
+                child: Text(
+                  'LEAVE',
+                  style: GoogleFonts.barlow(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: Colors.redAccent,
+                    letterSpacing: 1,
+                  ),
+                ),
+              ),
             ),
           ),
-          const SizedBox(height: 10),
-          Row(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              Text(
-                widget.roomCode,
-                style: GoogleFonts.barlow(
-                  fontSize: 38,
-                  fontWeight: FontWeight.w900,
-                  color: _purple,
-                  letterSpacing: 4,
-                  shadows: const [
-                    Shadow(blurRadius: 16, color: _purple),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
+
+            child: Column(
+              children: [
+                Text(
+                  'LOBBY ACCESS CODE',
+                  style: GoogleFonts.barlow(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w700,
+                    color: _white38,
+                    letterSpacing: 2,
+                  ),
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Text(
+                      widget.roomCode,
+                      style: GoogleFonts.barlow(
+                        fontSize: 38,
+                        fontWeight: FontWeight.w900,
+                        color: _purple,
+                        letterSpacing: 4,
+                        shadows: const [Shadow(blurRadius: 16, color: _purple)],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    GestureDetector(
+                      onTap: _copy,
+                      child: Container(
+                        width: 38,
+                        height: 38,
+                        decoration: BoxDecoration(
+                          color: _white12,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: _border),
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(
+                          _copied
+                              ? Icons.check_rounded
+                              : Icons.content_copy_rounded,
+                          color: _copied ? _green : _white70,
+                          size: 18,
+                        ),
+                      ),
+                    ),
                   ],
                 ),
-              ),
-              const SizedBox(width: 12),
-              GestureDetector(
-                onTap: _copy,
-                child: Container(
-                  width: 38,
-                  height: 38,
-                  decoration: BoxDecoration(
-                    color: _white12,
-                    borderRadius: BorderRadius.circular(10),
-                    border: Border.all(color: _border),
-                  ),
-                  alignment: Alignment.center,
-                  child: Icon(
-                    _copied ? Icons.check_rounded : Icons.content_copy_rounded,
-                    color: _copied ? _green : _white70,
-                    size: 18,
+                const SizedBox(height: 6),
+                Text(
+                  'Waiting for players to join the lobby...',
+                  style: GoogleFonts.inter(
+                    fontSize: 12.5,
+                    color: _white70,
+                    fontStyle: FontStyle.italic,
                   ),
                 ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 6),
-          Text(
-            'Waiting for players to join the lobby...',
-            style: GoogleFonts.inter(
-              fontSize: 12.5,
-              color: _white70,
-              fontStyle: FontStyle.italic,
+              ],
             ),
           ),
         ],
@@ -295,7 +350,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
   }
 
   Widget _buildPlayerCard(PlayerInfo p, int idx) {
-    final isHost    = p.id == widget.roomState.host;
+    final isHost = p.id == widget.roomState.host;
     final avatarClr = _avatarColors[idx % _avatarColors.length];
     final isKicking = _kickConfirm == p.id;
 
@@ -303,9 +358,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
       decoration: BoxDecoration(
         color: isHost ? _purple.withOpacity(0.08) : _card,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: isHost ? _purple.withOpacity(0.4) : _border,
-        ),
+        border: Border.all(color: isHost ? _purple.withOpacity(0.4) : _border),
       ),
       padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
       child: Stack(
@@ -319,7 +372,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
               right: 0,
               child: Center(
                 child: Container(
-                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 2,
+                  ),
                   decoration: BoxDecoration(
                     color: _purple,
                     borderRadius: BorderRadius.circular(6),
@@ -487,9 +543,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
             label: 'GAME MODE',
             child: _PillRow(
               items: const [
-                _PillItem('knows',  '😈 Knows'),
+                _PillItem('knows', '😈 Knows'),
                 _PillItem('secret', '🤫 Secret'),
-                _PillItem('blind',  '🫥 Blind'),
+                _PillItem('blind', '🫥 Blind'),
               ],
               selected: _gameMode,
               enabled: widget.isHost,
@@ -542,7 +598,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
               spacing: 8,
               runSpacing: 8,
               children: [3, 4, 5, 6, 7, 8, 9, 10].map((n) {
-                final active  = _maxPlayers == n;
+                final active = _maxPlayers == n;
                 final enabled = widget.isHost && _players.length <= n;
                 return _Pill(
                   label: n.toString(),
@@ -589,7 +645,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
                   if (widget.chatMessages.isNotEmpty)
                     Container(
                       margin: const EdgeInsets.only(left: 8),
-                      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 7,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: _purple.withOpacity(0.2),
                         borderRadius: BorderRadius.circular(8),
@@ -605,7 +664,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
                     ),
                   const Spacer(),
                   Icon(
-                    _showChat ? Icons.keyboard_arrow_up : Icons.keyboard_arrow_down,
+                    _showChat
+                        ? Icons.keyboard_arrow_up
+                        : Icons.keyboard_arrow_down,
                     color: _white38,
                     size: 20,
                   ),
@@ -630,14 +691,19 @@ class _LobbyScreenState extends State<LobbyScreen> {
                   : ListView.builder(
                       controller: _chatScrollCtrl,
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
+                        horizontal: 14,
+                        vertical: 10,
+                      ),
                       itemCount: widget.chatMessages.length,
                       itemBuilder: (_, i) {
-                        final msg   = widget.chatMessages[i];
-                        final isMe  = msg.senderId == widget.myId;
-                        final pIdx  = _players.indexWhere((p) => p.id == msg.senderId);
-                        final color = _avatarColors[(pIdx >= 0 ? pIdx : 0) %
-                            _avatarColors.length];
+                        final msg = widget.chatMessages[i];
+                        final isMe = msg.senderId == widget.myId;
+                        final pIdx = _players.indexWhere(
+                          (p) => p.id == msg.senderId,
+                        );
+                        final color =
+                            _avatarColors[(pIdx >= 0 ? pIdx : 0) %
+                                _avatarColors.length];
 
                         return Padding(
                           padding: const EdgeInsets.only(bottom: 8),
@@ -645,7 +711,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
                               ? Align(
                                   alignment: Alignment.centerRight,
                                   child: _ChatBubble(
-                                      text: msg.text, isMe: true, color: color),
+                                    text: msg.text,
+                                    isMe: true,
+                                    color: color,
+                                  ),
                                 )
                               : Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -660,7 +729,10 @@ class _LobbyScreenState extends State<LobbyScreen> {
                                     ),
                                     const SizedBox(height: 2),
                                     _ChatBubble(
-                                        text: msg.text, isMe: false, color: color),
+                                      text: msg.text,
+                                      isMe: false,
+                                      color: color,
+                                    ),
                                   ],
                                 ),
                         );
@@ -678,7 +750,9 @@ class _LobbyScreenState extends State<LobbyScreen> {
                   Expanded(
                     child: Container(
                       padding: const EdgeInsets.symmetric(
-                          horizontal: 12, vertical: 2),
+                        horizontal: 12,
+                        vertical: 2,
+                      ),
                       decoration: BoxDecoration(
                         color: _bg,
                         borderRadius: BorderRadius.circular(10),
@@ -687,20 +761,25 @@ class _LobbyScreenState extends State<LobbyScreen> {
                       child: TextField(
                         controller: _chatCtrl,
                         style: GoogleFonts.inter(
-                            color: Colors.white, fontSize: 13),
+                          color: Colors.white,
+                          fontSize: 13,
+                        ),
                         cursorColor: _purple,
                         maxLength: 200,
                         textInputAction: TextInputAction.send,
                         onSubmitted: (_) => _sendChat(),
                         decoration: InputDecoration(
                           hintText: 'Send a message...',
-                          hintStyle:
-                              GoogleFonts.inter(color: _white38, fontSize: 13),
+                          hintStyle: GoogleFonts.inter(
+                            color: _white38,
+                            fontSize: 13,
+                          ),
                           border: InputBorder.none,
                           counterText: '',
                           isDense: true,
-                          contentPadding:
-                              const EdgeInsets.symmetric(vertical: 10),
+                          contentPadding: const EdgeInsets.symmetric(
+                            vertical: 10,
+                          ),
                         ),
                       ),
                     ),
@@ -716,9 +795,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                           width: 38,
                           height: 38,
                           decoration: BoxDecoration(
-                            color: empty
-                                ? _white12
-                                : _purple.withOpacity(0.85),
+                            color: empty ? _white12 : _purple.withOpacity(0.85),
                             borderRadius: BorderRadius.circular(10),
                           ),
                           alignment: Alignment.center,
@@ -794,9 +871,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                     color: canStart ? _purple : _purpleDim.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: canStart
-                          ? _purple.withOpacity(0.8)
-                          : _border,
+                      color: canStart ? _purple.withOpacity(0.8) : _border,
                     ),
                     boxShadow: canStart
                         ? [
@@ -804,7 +879,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                               color: _purple.withOpacity(0.35),
                               blurRadius: 20,
                               spreadRadius: 0,
-                            )
+                            ),
                           ]
                         : [],
                   ),
@@ -839,8 +914,7 @@ class _LobbyScreenState extends State<LobbyScreen> {
                   const SizedBox(width: 10),
                   Text(
                     'Waiting for the host to start the match…',
-                    style: GoogleFonts.inter(
-                        fontSize: 13, color: _white70),
+                    style: GoogleFonts.inter(fontSize: 13, color: _white70),
                   ),
                 ],
               ),
@@ -948,8 +1022,8 @@ class _Pill extends StatelessWidget {
             color: active
                 ? Colors.white
                 : enabled
-                    ? _white70
-                    : _white38,
+                ? _white70
+                : _white38,
             letterSpacing: 0.3,
           ),
         ),
@@ -992,8 +1066,11 @@ class _ChatBubble extends StatelessWidget {
   final bool isMe;
   final Color color;
 
-  const _ChatBubble(
-      {required this.text, required this.isMe, required this.color});
+  const _ChatBubble({
+    required this.text,
+    required this.isMe,
+    required this.color,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -1007,18 +1084,20 @@ class _ChatBubble extends StatelessWidget {
             ? _purple.withOpacity(0.22)
             : Colors.white.withOpacity(0.06),
         borderRadius: BorderRadius.only(
-          topLeft:     const Radius.circular(12),
-          topRight:    const Radius.circular(12),
-          bottomLeft:  Radius.circular(isMe ? 12 : 2),
+          topLeft: const Radius.circular(12),
+          topRight: const Radius.circular(12),
+          bottomLeft: Radius.circular(isMe ? 12 : 2),
           bottomRight: Radius.circular(isMe ? 2 : 12),
         ),
-        border: Border.all(
-          color: isMe ? _purple.withOpacity(0.3) : _border,
-        ),
+        border: Border.all(color: isMe ? _purple.withOpacity(0.3) : _border),
       ),
       child: Text(
         text,
-        style: GoogleFonts.inter(fontSize: 13, color: Colors.white, height: 1.4),
+        style: GoogleFonts.inter(
+          fontSize: 13,
+          color: Colors.white,
+          height: 1.4,
+        ),
       ),
     );
   }
@@ -1052,10 +1131,7 @@ class _PulseDotState extends State<_PulseDot>
       child: Container(
         width: 8,
         height: 8,
-        decoration: const BoxDecoration(
-          color: _purple,
-          shape: BoxShape.circle,
-        ),
+        decoration: const BoxDecoration(color: _purple, shape: BoxShape.circle),
       ),
     );
   }

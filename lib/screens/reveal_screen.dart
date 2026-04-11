@@ -68,6 +68,9 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
   late final Animation<double> _cardFade;
   late final Animation<Offset> _cardSlide;
 
+  // Add this field to _RevealScreenState:
+  bool _doneFired = false;
+
   @override
   void initState() {
     super.initState();
@@ -143,8 +146,15 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
   @override
   Widget build(BuildContext context) {
     // Side effect: when all ready and host, trigger onDone
-    if (_allReady && widget.isHost) {
+    /* if (_allReady && widget.isHost) {
       WidgetsBinding.instance.addPostFrameCallback((_) => widget.onDone());
+    } */
+
+    if (_allReady && widget.isHost && !_doneFired) {
+      _doneFired = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onDone();
+      });
     }
 
     return Scaffold(
@@ -322,7 +332,14 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
               if (widget.isHost) ...[
                 const SizedBox(height: 12),
                 TextButton.icon(
-                  onPressed: widget.onChangeWord,
+                  onPressed: () {
+                    setState(() {
+                      _doneFired = false;
+                      _confirmed =
+                          false; // lock the card again for the host too
+                    });
+                    widget.onChangeWord();
+                  },
                   icon: const Text('🔁', style: TextStyle(fontSize: 14)),
                   label: const Text(
                     'Change Word',

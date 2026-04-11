@@ -1,7 +1,9 @@
 import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:word_imposter/state/game_controller.dart';
 
 // ─── Data ────────────────────────────────────────────────────────────────────
 
@@ -65,66 +67,49 @@ const _errorBg = Color(0xFFE53935);
 
 // ─── HomeScreen ──────────────────────────────────────────────────────────────
 
-class HomeScreen extends StatefulWidget {
-  /// Called when the user taps HOST NOW.
-  final void Function(String name, String mode)? onCreate;
-
-  /// Called when the user taps ENTER ROOM.
-  final void Function(String code, String name)? onJoin;
-
-  const HomeScreen({super.key, this.onCreate, this.onJoin});
+class HomeScreen extends ConsumerStatefulWidget {
+  const HomeScreen({super.key});
 
   @override
-  State<HomeScreen> createState() => _HomeScreenState();
+  ConsumerState<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _nameFocus = FocusNode();
   final _codeFocus = FocusNode();
   final _nameCtrl = TextEditingController();
   final _codeCtrl = TextEditingController();
 
-  String _error = '';
   bool _showRules = false;
 
   // ── helpers ────────────────────────────────────────────────────────────────
 
-  void _setError(String msg) => setState(() => _error = msg);
-  void _clearError() => setState(() => _error = '');
-
   void _handleCreate() {
-    if (_nameCtrl.text.trim().isEmpty) {
-      _setError('Enter your name first!');
-      return;
-    }
-    _clearError();
-    widget.onCreate?.call(_nameCtrl.text.trim(), 'knows');
+    // React: handleCreate calls onCreate(name.trim(), "knows")
+    // HomeScreen.jsx line: onCreate(name.trim(), "knows")
+    ref.read(gameProvider.notifier).createRoom(_nameCtrl.text.trim(), 'knows');
   }
 
   void _handleJoin() {
-    if (_nameCtrl.text.trim().isEmpty) {
-      _setError('Enter your name first!');
-      return;
-    }
-    if (_codeCtrl.text.trim().isEmpty) {
-      _setError('Enter a room code!');
-      return;
-    }
-    _clearError();
-    widget.onJoin?.call(_codeCtrl.text.trim(), _nameCtrl.text.trim());
+    // React: handleJoin calls onJoin(code.trim(), name.trim())
+    ref
+        .read(gameProvider.notifier)
+        .joinRoom(_codeCtrl.text.trim(), _nameCtrl.text.trim());
   }
 
   void _handleInitiate() {
-    if (_codeCtrl.text.trim().isNotEmpty)
+    if (_codeCtrl.text.trim().isNotEmpty) {
       _handleJoin();
-    else
+    } else {
       _handleCreate();
+    }
   }
 
   // ── build ──────────────────────────────────────────────────────────────────
 
   @override
   Widget build(BuildContext context) {
+    final error = ref.watch(gameProvider.select((s) => s.error));
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
@@ -165,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen> {
                     const SizedBox(height: 14),
                     _buildJoinCard(),
                     const SizedBox(height: 20),
-                    if (_error.isNotEmpty) _buildErrorBox(),
+                    if (error.isNotEmpty) _buildErrorBox(error),
                     const SizedBox(height: 100), // room for FAB
                   ],
                 ),
@@ -283,7 +268,7 @@ class _HomeScreenState extends State<HomeScreen> {
               cursorColor: _purple,
               maxLength: 14,
               textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _handleInitiate(),
+              // onSubmitted: (_) => _handleInitiate(),
               decoration: InputDecoration(
                 hintText: 'Enter your name…',
                 hintStyle: GoogleFonts.inter(color: _white38, fontSize: 14),
@@ -403,7 +388,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // ── ERROR BOX ──────────────────────────────────────────────────────────────
 
-  Widget _buildErrorBox() {
+  Widget _buildErrorBox(String error) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
       decoration: BoxDecoration(
@@ -417,7 +402,7 @@ class _HomeScreenState extends State<HomeScreen> {
           const SizedBox(width: 8),
           Expanded(
             child: Text(
-              _error,
+              error,
               style: GoogleFonts.inter(color: _errorBg, fontSize: 13),
             ),
           ),

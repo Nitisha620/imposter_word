@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:word_imposter/state/room_state.dart';
+
+import '../state/player_info.dart';
 
 // ─── Colours ─────────────────────────────────────────────────────────────────
 const _bg = Color(0xFF0B0F1A);
 const _card = Color(0xFF131929);
-const _cardSelf = Color(0xFF1A1F35);
 const _border = Color(0xFF1E2740);
 const _purple = Color(0xFF7C6EF5);
 const _purpleDim = Color(0xFF4B44A0);
@@ -36,7 +38,7 @@ class EliminationAnnouncement {
 
 // ─── VotingScreen ─────────────────────────────────────────────────────────────
 class VotingScreen extends StatelessWidget {
-  final dynamic roomState; // your RoomState type
+  final RoomState roomState;
   final String myId;
   final bool isHost;
   final bool isEliminated;
@@ -58,46 +60,45 @@ class VotingScreen extends StatelessWidget {
 
   // ── derived helpers ────────────────────────────────────────────────────────
 
-  List<String> get _eliminatedIds {
-    final raw = []; /* (roomState?.eliminatedSoFar as List?) ?? []; */
-    return raw
-        .map<String>((e) => e is Map ? e['id'] as String : e as String)
-        .toList();
-  }
+  List<String> get _eliminatedIds =>
+      // Mirrors: (roomState?.eliminatedSoFar || []).map(e => typeof e === "object" ? e.id : e)
+      roomState.eliminatedSoFar.map((e) => e['id']?.toString() ?? '').toList();
 
-  List<dynamic> get _allPlayers {
-    final map = (roomState?.players as Map?) ?? {};
-    final list = map.values.toList();
-    list.sort((a, b) => (a.joinedAt as int).compareTo(b.joinedAt as int));
-    return list;
-  }
+  List<PlayerInfo> get _allPlayers =>
+      // Mirrors: Object.values(roomState?.players || {}).sort((a,b) => a.joinedAt - b.joinedAt)
+      roomState.players.values.toList()
+        ..sort((a, b) => a.joinedAt.compareTo(b.joinedAt));
 
-  List<dynamic> get _players => _allPlayers
-      .where((p) => !_eliminatedIds.contains(p.id as String))
-      .toList();
+  List<PlayerInfo> get _players =>
+      // Mirrors: allPlayers.filter(p => !eliminatedIds.includes(p.id))
+      _allPlayers.where((p) => !_eliminatedIds.contains(p.id)).toList();
 
-  Map<String, dynamic> get _votes =>
-      /* (roomState?.votes as Map<String, dynamic>?) ?? */ {};
+  Map<String, String> get _votes =>
+      // Mirrors: roomState?.votes || {}
+      roomState.votes ?? {};
 
-  String? get _myVote => _votes[myId] as String?;
+  String? get _myVote => _votes[myId];
 
   int get _totalVoted =>
+      // Mirrors: Object.keys(votes).filter(id => !eliminatedIds.includes(id)).length
       _votes.keys.where((id) => !_eliminatedIds.contains(id)).length;
 
   Map<String, int> get _tally {
+    // Mirrors: Object.values(votes).forEach(vid => { tally[vid] = (tally[vid]||0)+1 })
     final t = <String, int>{};
     for (final vid in _votes.values) {
-      t[vid as String] = (t[vid] ?? 0) + 1;
+      t[vid] = (t[vid] ?? 0) + 1;
     }
     return t;
   }
 
   EliminationAnnouncement? get _announcement {
-    final a = null; /*  roomState?.eliminationAnnouncement; */
+    // Mirrors: roomState?.eliminationAnnouncement || null
+    final a = roomState.eliminationAnnouncement;
     if (a == null) return null;
     return EliminationAnnouncement(
-      name: a['name'] as String,
-      imposterCaught: a['imposterCaught'] as bool,
+      name: a['name']?.toString() ?? '',
+      imposterCaught: a['imposterCaught'] == true,
     );
   }
 
@@ -305,8 +306,12 @@ class VotingScreen extends StatelessWidget {
     );
   }
 
+  /* Widget _buildRevealBtn(bool enabled) => */
+  /*     _buildActionBtn('REVEAL RESULTS →', true ? onFinalize : null); */
+
+  // NEW — mirrors React's disabled={totalVoted === 0}:
   Widget _buildRevealBtn(bool enabled) =>
-      _buildActionBtn('REVEAL RESULTS →', true ? onFinalize : null);
+      _buildActionBtn('REVEAL RESULTS →', enabled ? onFinalize : null);
 
   Widget _buildActionBtn(String label, VoidCallback? onTap) {
     final active = onTap != null;

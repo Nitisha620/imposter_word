@@ -1,5 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:word_imposter/state/room_state.dart';
+
+import '../state/player_info.dart';
 
 // ─── Colours ──────────────────────────────────────────────────────────────────
 const _bg = Color(0xFF0B0F1A);
@@ -52,7 +55,7 @@ class EliminatedEntry {
 // ─── ResultsScreen ────────────────────────────────────────────────────────────
 
 class ResultsScreen extends StatelessWidget {
-  final dynamic roomState; // your RoomState
+  final RoomState roomState; // your RoomState
   final bool isHost;
   final VoidCallback onPlayAgain;
   final VoidCallback onLeave;
@@ -68,48 +71,49 @@ class ResultsScreen extends StatelessWidget {
   // ── derived ────────────────────────────────────────────────────────────────
 
   ResultData get _results {
-    final r = null; /*  ?? roomState?.results; */
+    // Was: final r = null;
+    final r = roomState.results;
     if (r == null) return const ResultData();
     return ResultData(
-      eliminated: r['eliminated'] as String?,
-      imposterCaught: (r['imposterCaught'] as bool?) ?? false,
-      innocentsWin: (r['innocentsWin'] as bool?) ?? false,
-      remainingImposters: (r['remainingImposters'] as int?) ?? 0,
-      tally: Map<String, int>.from((r['tally'] as Map?) ?? {}),
-      imposters: List<String>.from((r['imposters'] as List?) ?? []),
+      eliminated: r.eliminated.isEmpty ? null : r.eliminated,
+      imposterCaught: r.imposterCaught,
+      innocentsWin: r.innocentsWin,
+      remainingImposters: r.remainingImposters,
+      tally: r.tally,
+      imposters: r.imposters,
     );
   }
 
-  List<dynamic> get _players {
-    final map = (roomState?.players as Map?) ?? {};
-    final list = map.values.toList();
-    list.sort((a, b) => (a.joinedAt as int).compareTo(b.joinedAt as int));
-    return list;
-  }
+  List<PlayerInfo> get _players =>
+      // Mirrors: Object.values(roomState?.players||{}).sort((a,b)=>a.joinedAt-b.joinedAt)
+      roomState.players.values.toList()
+        ..sort((a, b) => a.joinedAt.compareTo(b.joinedAt));
 
-  List<EliminatedEntry> get _eliminatedSoFar {
-    final raw = /* (roomState?.eliminatedSoFar as List?) ?? */ [];
-    return raw.map<EliminatedEntry>((e) {
-      if (e is Map) {
-        return EliminatedEntry(
-          id: e['id'] as String,
-          name: e['name'] as String? ?? 'Unknown',
-        );
-      }
-      return EliminatedEntry(id: e as String, name: 'Unknown');
-    }).toList();
-  }
+  List<EliminatedEntry> get _eliminatedSoFar =>
+      // Mirrors: (roomState?.eliminatedSoFar || []).map(entry => ...)
+      roomState.eliminatedSoFar
+          .map(
+            (e) => EliminatedEntry(
+              id: e['id']?.toString() ?? '',
+              name: e['name']?.toString() ?? 'Unknown',
+            ),
+          )
+          .toList();
 
-  String _imposterName(String id, int fallbackIdx, List<dynamic> players) {
-    final p = (roomState?.players as Map?)?[id];
-    if (p != null) return p.name as String;
-    final a = (roomState?.assignments as Map?)?[id];
-    if (a != null) return a['name'] as String? ?? '?';
-    final elim = _eliminatedSoFar.firstWhere(
-      (e) => e.id == id,
-      orElse: () => EliminatedEntry(id: id, name: '?'),
-    );
-    return elim.name;
+  String _imposterName(String id, int fallbackIdx, List<PlayerInfo> players) {
+    // Mirrors: roomState?.players?.[id]?.name || roomState?.assignments?.[id]?.name || eliminatedSoFar.find(...)?.name
+    final p = roomState.players[id];
+    if (p != null) return p.name;
+
+    final a = roomState.assignments?[id];
+    if (a != null) return a.name;
+
+    return _eliminatedSoFar
+        .firstWhere(
+          (e) => e.id == id,
+          orElse: () => EliminatedEntry(id: id, name: '?'),
+        )
+        .name;
   }
 
   Color _avatarColor(int idx) => _avatarColors[idx % _avatarColors.length];
@@ -124,10 +128,11 @@ class ResultsScreen extends StatelessWidget {
     final tally = results.tally;
     final imposters = results.imposters;
 
+    // In sortedPlayers sort and the eliminatedName lookup — these now work
+    // type-safely because PlayerInfo has .id, .name, .joinedAt fields:
     final eliminatedName = results.eliminated != null
-        ? ((roomState?.players as Map?)?[results.eliminated]?.name
-                  as String?) ??
-              'Unknown'
+        ? roomState.players[results.eliminated]?.name ??
+              'Unknown' // was unsafe cast
         : null;
 
     // outcome strings
@@ -145,10 +150,7 @@ class ResultsScreen extends StatelessWidget {
 
     // sorted by votes for vote-breakdown
     final sortedPlayers = [...players]
-      ..sort(
-        (a, b) =>
-            (tally[b.id as String] ?? 0).compareTo(tally[a.id as String] ?? 0),
-      );
+      ..sort((a, b) => (tally[b.id] ?? 0).compareTo(tally[a.id] ?? 0));
     final maxTally = tally.values.isEmpty
         ? 1
         : tally.values.reduce((a, b) => a > b ? a : b);
@@ -268,10 +270,13 @@ class ResultsScreen extends StatelessWidget {
   // ── WORD CARDS ─────────────────────────────────────────────────────────────
 
   Widget _buildWordCards() {
-    final mainWord = "--"; /* roomState?.mainWord as String? ?? '—'; */
-    final imposterWord = "-"; /* roomState?.gameMode == 'blind'
+    // Was: final mainWord = "--";
+    // Was: final imposterWord = "-";
+    // Mirrors: roomState?.mainWord and roomState?.gameMode === "blind" check
+    final mainWord = roomState.mainWord ?? '—';
+    final imposterWord = roomState.gameMode == 'blind'
         ? '—'
-        : (roomState?.imposterWord as String? ?? '—'); */
+        : (roomState.imposterWord ?? '—');
 
     return Row(
       children: [
@@ -294,7 +299,7 @@ class ResultsScreen extends StatelessWidget {
 
   Widget _buildImpostersPanel({
     required List<String> imposters,
-    required List<dynamic> players,
+    required List<PlayerInfo> players,
     required List<EliminatedEntry> elims,
     required ResultData results,
   }) {
@@ -373,8 +378,8 @@ class ResultsScreen extends StatelessWidget {
   // ── VOTE BREAKDOWN ─────────────────────────────────────────────────────────
 
   Widget _buildVoteBreakdown({
-    required List<dynamic> sortedPlayers,
-    required List<dynamic> players,
+    required List<PlayerInfo> sortedPlayers,
+    required List<PlayerInfo> players,
     required Map<String, int> tally,
     required int maxTally,
     required List<String> imposters,
