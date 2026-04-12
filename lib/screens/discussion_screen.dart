@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/chat_message.dart';
+import '../models/eliminated_entry.dart';
 
 // ── Palette ────────────────────────────────────────────────────────────────
 const _bg = Color(0xFF0A0814);
@@ -27,11 +28,6 @@ const _avatarColors = [
   Color(0xFFA3E635),
   Color(0xFFFB923C),
 ];
-
-class EliminatedEntry {
-  final String id, name;
-  const EliminatedEntry({required this.id, required this.name});
-}
 
 // ── Screen ─────────────────────────────────────────────────────────────────
 class DiscussionScreen extends ConsumerStatefulWidget {
@@ -260,12 +256,10 @@ class _DiscussionScreenState extends ConsumerState<DiscussionScreen>
           children: [
             // Active players
             ..._activePlayers.map((entry) {
-              final p = {
-                "name": "Law",
-              }; /* entry.value as Map<String, dynamic>; */
-              final id = entry.key;
+              final p = entry.value;
+              final id = p.id;
               // ignore: unnecessary_cast
-              final name = p['name'] as String? ?? '?';
+              final name = p.name;
               final color =
                   _avatarColors[_avatarIndex(id) % _avatarColors.length];
               return Padding(
