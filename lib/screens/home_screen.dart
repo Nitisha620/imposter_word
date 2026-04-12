@@ -97,14 +97,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         .joinRoom(_codeCtrl.text.trim(), _nameCtrl.text.trim());
   }
 
-  void _handleInitiate() {
-    if (_codeCtrl.text.trim().isNotEmpty) {
-      _handleJoin();
-    } else {
-      _handleCreate();
-    }
-  }
-
   // ── build ──────────────────────────────────────────────────────────────────
 
   @override
@@ -173,7 +165,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   Widget _buildHero() {
     return Column(
       children: [
-        // "IMPOSTOR" — solid white, heavy weight
         Text(
           'IMPOSTOR',
           textAlign: TextAlign.center,
@@ -184,55 +175,15 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             letterSpacing: 2,
           ),
         ),
-
-        // "WORD" — outlined/glowing cyan-purple
-        Stack(
-          alignment: Alignment.center,
-          children: [
-            // outer glow layer
-            Text(
-              'WORD',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.barlow(
-                fontSize: 38,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 2,
-                foreground: Paint()
-                  ..style = PaintingStyle.stroke
-                  ..strokeWidth = 3
-                  ..color = _purple.withOpacity(0.55),
-                shadows: const [
-                  Shadow(blurRadius: 32, color: _purple),
-                  Shadow(
-                    blurRadius: 64,
-                    color: Color.fromARGB(255, 128, 106, 227),
-                  ),
-                ],
-              ),
-            ),
-            // crisp fill layer
-            Text(
-              'WORD',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.barlow(
-                fontSize: 38,
-                fontWeight: FontWeight.w900,
-                letterSpacing: 2,
-                color: _purple,
-                shadows: const [
-                  Shadow(blurRadius: 8, color: _purple),
-                  Shadow(
-                    blurRadius: 24,
-                    color: Color.fromARGB(255, 231, 229, 241),
-                  ),
-                  Shadow(
-                    blurRadius: 48,
-                    color: Color.fromARGB(255, 128, 106, 227),
-                  ),
-                ],
-              ),
-            ),
-          ],
+        Text(
+          'WORD',
+          textAlign: TextAlign.center,
+          style: GoogleFonts.barlow(
+            fontSize: 38,
+            fontWeight: FontWeight.w900,
+            color: Colors.white,
+            letterSpacing: 2,
+          ),
         ),
 
         const SizedBox(height: 12),

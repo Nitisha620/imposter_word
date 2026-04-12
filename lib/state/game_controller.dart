@@ -1,4 +1,3 @@
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/legacy.dart';
 import 'package:word_imposter/services/partykit_service.dart';
 import 'package:word_imposter/services/session_service.dart';
@@ -6,6 +5,7 @@ import 'package:word_imposter/state/game_state.dart';
 import 'package:word_imposter/state/room_state.dart';
 
 import '../models/chat_message.dart';
+import '../utils/enum.dart';
 
 final gameProvider = StateNotifierProvider<GameController, GameState>((ref) {
   return GameController();

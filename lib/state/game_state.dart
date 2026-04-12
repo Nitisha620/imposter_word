@@ -1,10 +1,8 @@
-import 'package:word_imposter/screens/discussion_screen.dart';
 import 'package:word_imposter/state/player_info.dart';
 import 'package:word_imposter/state/room_state.dart';
 
 import '../models/chat_message.dart';
-
-enum GamePhase { home, lobby, reveal, discussion, voting, results, closed }
+import '../utils/enum.dart';
 
 class GameState {
   final String roomCode;

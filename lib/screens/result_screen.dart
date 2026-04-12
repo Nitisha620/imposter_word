@@ -10,7 +10,6 @@ const _card = Color(0xFF111827);
 const _border = Color(0xFF1E2740);
 const _purple = Color(0xFF7C6EF5);
 const _red = Color(0xFFEF4444);
-const _redDim = Color(0xFF7F1D1D);
 const _white70 = Color(0xB3FFFFFF);
 const _white38 = Color(0x61FFFFFF);
 const _white12 = Color(0x1FFFFFFF);
@@ -352,7 +351,7 @@ class ResultsScreen extends StatelessWidget {
                     final entry = e.value;
                     final wasImp =
                         (results.imposters).contains(entry.id) ||
-                        ((roomState?.allImposters as List?) ?? []).contains(
+                        ((roomState.allImposters as List?) ?? []).contains(
                           entry.id,
                         );
                     final idx = players.indexWhere((p) => p.id == entry.id);
@@ -427,8 +426,8 @@ class ResultsScreen extends StatelessWidget {
           // rows
           ...sortedPlayers.map((p) {
             final idx = players.indexWhere((x) => x.id == p.id);
-            final count = tally[p.id as String] ?? 0;
-            final isImp = imposters.contains(p.id as String);
+            final count = tally[p.id] ?? 0;
+            final isImp = imposters.contains(p.id);
             final barClr = isImp ? _red : _avatarColor(idx >= 0 ? idx : 0);
             final frac = maxTally > 0 ? count / maxTally : 0.0;
 
@@ -456,7 +455,7 @@ class ResultsScreen extends StatelessWidget {
                     ),
                     alignment: Alignment.center,
                     child: Text(
-                      (p.name as String)[0].toUpperCase(),
+                      (p.name)[0].toUpperCase(),
                       style: GoogleFonts.barlow(
                         fontSize: 15,
                         fontWeight: FontWeight.w800,
@@ -474,7 +473,7 @@ class ResultsScreen extends StatelessWidget {
                         Row(
                           children: [
                             Text(
-                              p.name as String,
+                              p.name,
                               style: GoogleFonts.inter(
                                 fontSize: 13,
                                 fontWeight: FontWeight.w600,

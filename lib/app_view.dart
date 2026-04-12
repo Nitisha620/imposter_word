@@ -1,13 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'state/game_controller.dart';
-import 'state/game_state.dart';
 import 'screens/home_screen.dart';
 import 'screens/lobby_screen.dart';
 import 'screens/reveal_screen.dart';
 import 'screens/discussion_screen.dart';
 import 'screens/voting_screen.dart';
 import 'screens/result_screen.dart';
+import 'utils/enum.dart';
 
 class AppView extends ConsumerWidget {
   const AppView({super.key});

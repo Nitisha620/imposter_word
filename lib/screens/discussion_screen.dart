@@ -16,7 +16,6 @@ const _text = Color(0xFFE8E4FF);
 const _textMuted = Color(0xFF8B86A8);
 const _green = Color(0xFF34D399);
 const _red = Color(0xFFF87171);
-const _pink = Color(0xFFE879F9);
 
 const _avatarColors = [
   Color(0xFF6D62F5),
@@ -73,27 +72,23 @@ class _DiscussionScreenState extends ConsumerState<DiscussionScreen>
   int get _timerSecs => (widget.roomState?.timerSecs as int?) ?? 120;
   bool get _hasTimer => _endTime != null && _timerSecs > 0;
   bool get _urgent => _hasTimer && _timeLeft <= 20;
-  bool get _tieVote => (widget.roomState?.tieVote as bool?) ?? false;
-  String get _host => (widget.roomState?.host as String?) ?? '';
-  String get _gameMode => (widget.roomState?.gameMode as String?) ?? '';
   int get _elimCount => _eliminatedEntries.length;
 
-  Map<String, dynamic> get _assignments =>
-      (widget.roomState?.assignments as Map<String, dynamic>?) ?? {};
   Map<String, dynamic> get _players =>
       (widget.roomState?.players as Map<String, dynamic>?) ?? {};
 
   bool get _isImposter => false;
-      /* (_assignments[widget.myId]?['role'] as String?) == 'imposter'; */
+  /* (_assignments[widget.myId]?['role'] as String?) == 'imposter'; */
 
   List<EliminatedEntry> get _eliminatedEntries {
     final raw = /* (widget.roomState?.eliminatedSoFar as List?) ?? */ [];
     return raw.map((e) {
-      if (e is Map)
+      if (e is Map) {
         return EliminatedEntry(
           id: e['id'] as String,
           name: e['name'] as String,
         );
+      }
       return EliminatedEntry(id: e as String, name: 'Unknown');
     }).toList();
   }
@@ -269,6 +264,7 @@ class _DiscussionScreenState extends ConsumerState<DiscussionScreen>
                 "name": "Law",
               }; /* entry.value as Map<String, dynamic>; */
               final id = entry.key;
+              // ignore: unnecessary_cast
               final name = p['name'] as String? ?? '?';
               final color =
                   _avatarColors[_avatarIndex(id) % _avatarColors.length];

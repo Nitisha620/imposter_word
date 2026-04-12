@@ -214,13 +214,13 @@ class VotingScreen extends StatelessWidget {
                       final hasVoted = _votes.containsValue(p.id);
                       final canVote =
                           !isEliminated && !isSelf && announcement == null;
-                      final count = tally[p.id as String] ?? 0;
+                      final count = tally[p.id] ?? 0;
                       final color =
                           _avatarColors[(allIdx >= 0 ? allIdx : i) %
                               _avatarColors.length];
 
                       return _VoteCard(
-                        name: p.name as String,
+                        name: p.name,
                         avatarColor: color,
                         isSelf: isSelf,
                         isVotedFor: isVotedFor,
@@ -228,7 +228,7 @@ class VotingScreen extends StatelessWidget {
                         canVote: canVote,
                         voteCount: count,
                         onTap: canVote
-                            ? () => onCastVote(p.id as String)
+                            ? () => onCastVote(p.id)
                             : null,
                       );
                     },
