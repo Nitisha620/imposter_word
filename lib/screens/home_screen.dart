@@ -1,4 +1,3 @@
-import 'dart:ui';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,6 +6,9 @@ import 'package:word_imposter/state/game_controller.dart';
 
 import '../data/rule_data.dart';
 import '../models/rule.dart';
+import '../widgets/action_button.dart';
+import '../widgets/glass_container.dart';
+import '../widgets/icon_badge.dart';
 
 // ─── Colours / constants ─────────────────────────────────────────────────────
 
@@ -35,23 +37,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
 
   bool _showRules = false;
 
-  // ── helpers ────────────────────────────────────────────────────────────────
-
-  void _handleCreate() {
-    // React: handleCreate calls onCreate(name.trim(), "knows")
-    // HomeScreen.jsx line: onCreate(name.trim(), "knows")
-    ref.read(gameProvider.notifier).createRoom(_nameCtrl.text.trim(), 'knows');
-  }
-
-  void _handleJoin() {
-    // React: handleJoin calls onJoin(code.trim(), name.trim())
-    ref
-        .read(gameProvider.notifier)
-        .joinRoom(_codeCtrl.text.trim(), _nameCtrl.text.trim());
+  @override
+  void dispose() {
+    _nameCtrl.dispose();
+    _codeCtrl.dispose();
+    _nameFocus.dispose();
+    _codeFocus.dispose();
+    super.dispose();
   }
 
   // ── build ──────────────────────────────────────────────────────────────────
-
   @override
   Widget build(BuildContext context) {
     final error = ref.watch(gameProvider.select((s) => s.error));
@@ -71,7 +66,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   gradient: RadialGradient(
-                    colors: [_purple.withOpacity(0.18), Colors.transparent],
+                    colors: [_purple.withAlpha(80), Colors.transparent],
                     radius: 0.9,
                     center: Alignment.topCenter,
                   ),
@@ -95,6 +90,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     const SizedBox(height: 14),
                     _buildJoinCard(),
                     const SizedBox(height: 20),
+                    // TODO: Show it using listener using Snackbar or something
                     if (error.isNotEmpty) _buildErrorBox(error),
                     const SizedBox(height: 100), // room for FAB
                   ],
@@ -105,6 +101,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             // ── ? FAB ──────────────────────────────────────────────────────
             Positioned(right: 20, bottom: 20, child: _buildHelpFab()),
 
+            // TODO: Add this is listener
             // ── Rules modal ────────────────────────────────────────────────
             if (_showRules) _buildRulesModal(),
           ],
@@ -114,7 +111,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ── HERO ───────────────────────────────────────────────────────────────────
-
   Widget _buildHero() {
     return Column(
       children: [
@@ -138,9 +134,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             letterSpacing: 2,
           ),
         ),
-
         const SizedBox(height: 12),
-
         Text(
           'Trust no one. The word is the key, but the silence is deadly.',
           textAlign: TextAlign.center,
@@ -155,9 +149,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ── NAME INPUT ─────────────────────────────────────────────────────────────
-
   Widget _buildNameField() {
-    return _GlassContainer(
+    return GlassContainer(
       borderRadius: 14,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
       child: Row(
@@ -172,7 +165,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               cursorColor: _purple,
               maxLength: 14,
               textInputAction: TextInputAction.done,
-              // onSubmitted: (_) => _handleInitiate(),
               decoration: InputDecoration(
                 hintText: 'Enter your name…',
                 hintStyle: GoogleFonts.inter(color: _white38, fontSize: 14),
@@ -189,15 +181,14 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ── CREATE CARD ────────────────────────────────────────────────────────────
-
   Widget _buildCreateCard() {
-    return _GlassContainer(
+    return GlassContainer(
       borderRadius: 20,
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _IconBadge(icon: Icons.add_circle_outline_rounded, color: _purple),
+          IconBadge(icon: Icons.add_circle_outline_rounded, color: _purple),
           const SizedBox(height: 14),
           Text(
             'Create a Private Room',
@@ -217,22 +208,29 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
           const SizedBox(height: 16),
-          _ActionButton(label: 'HOST NOW', suffix: '→', onTap: _handleCreate),
+          ActionButton(
+            label: 'HOST NOW',
+            suffix: '→',
+            onTap: () {
+              ref
+                  .read(gameProvider.notifier)
+                  .createRoom(_nameCtrl.text.trim(), 'knows');
+            },
+          ),
         ],
       ),
     );
   }
 
   // ── JOIN CARD ──────────────────────────────────────────────────────────────
-
   Widget _buildJoinCard() {
-    return _GlassContainer(
+    return GlassContainer(
       borderRadius: 20,
       padding: const EdgeInsets.all(20),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _IconBadge(icon: Icons.key_rounded, color: _purple),
+          IconBadge(icon: Icons.key_rounded, color: _purple),
           const SizedBox(height: 14),
           Text(
             'Join a Private Room',
@@ -268,7 +266,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                 selection: TextSelection.collapsed(offset: v.length),
               ),
               textInputAction: TextInputAction.done,
-              onSubmitted: (_) => _handleJoin(),
               decoration: InputDecoration(
                 hintText: 'ENTER ROOM CODE',
                 hintStyle: GoogleFonts.inter(
@@ -284,14 +281,21 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
           const SizedBox(height: 14),
-          _ActionButton(label: 'ENTER ROOM', suffix: '↪', onTap: _handleJoin),
+          ActionButton(
+            label: 'ENTER ROOM',
+            suffix: '↪',
+            onTap: () {
+              ref
+                  .read(gameProvider.notifier)
+                  .joinRoom(_codeCtrl.text.trim(), _nameCtrl.text.trim());
+            },
+          ),
         ],
       ),
     );
   }
 
   // ── ERROR BOX ──────────────────────────────────────────────────────────────
-
   Widget _buildErrorBox(String error) {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -316,7 +320,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ── HELP FAB ───────────────────────────────────────────────────────────────
-
   Widget _buildHelpFab() {
     return GestureDetector(
       onTap: () => setState(() => _showRules = true),
@@ -342,7 +345,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   }
 
   // ── RULES MODAL ────────────────────────────────────────────────────────────
-
   Widget _buildRulesModal() {
     return GestureDetector(
       onTap: () => setState(() => _showRules = false),
@@ -465,106 +467,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
         ),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _nameCtrl.dispose();
-    _codeCtrl.dispose();
-    _nameFocus.dispose();
-    _codeFocus.dispose();
-    super.dispose();
-  }
-}
-
-// ─── Reusable sub-widgets ─────────────────────────────────────────────────────
-
-/// Frosted-glass card / input container.
-class _GlassContainer extends StatelessWidget {
-  final Widget child;
-  final double borderRadius;
-  final EdgeInsets padding;
-
-  const _GlassContainer({
-    required this.child,
-    this.borderRadius = 16,
-    this.padding = const EdgeInsets.all(16),
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return ClipRRect(
-      borderRadius: BorderRadius.circular(borderRadius),
-      child: BackdropFilter(
-        filter: ImageFilter.blur(sigmaX: 12, sigmaY: 12),
-        child: Container(
-          padding: padding,
-          decoration: BoxDecoration(
-            color: Colors.white.withOpacity(0.04),
-            borderRadius: BorderRadius.circular(borderRadius),
-            border: Border.all(color: _border),
-          ),
-          child: child,
-        ),
-      ),
-    );
-  }
-}
-
-/// Small square icon badge (matches React's `home-action-icon`).
-class _IconBadge extends StatelessWidget {
-  final IconData icon;
-  final Color color;
-
-  const _IconBadge({required this.icon, required this.color});
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      width: 48,
-      height: 48,
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: color.withOpacity(0.25)),
-      ),
-      alignment: Alignment.center,
-      child: Icon(icon, color: color, size: 24),
-    );
-  }
-}
-
-/// "HOST NOW →" / "ENTER ROOM ↪" text button.
-class _ActionButton extends StatelessWidget {
-  final String label;
-  final String suffix;
-  final VoidCallback onTap;
-
-  const _ActionButton({
-    required this.label,
-    required this.suffix,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            '$label  $suffix',
-            style: GoogleFonts.barlow(
-              fontSize: 13,
-              fontWeight: FontWeight.w700,
-              color: _purple,
-              letterSpacing: 0.8,
-            ),
-          ),
-        ],
       ),
     );
   }
