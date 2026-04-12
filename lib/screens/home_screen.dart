@@ -5,55 +5,8 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:word_imposter/state/game_controller.dart';
 
-// ─── Data ────────────────────────────────────────────────────────────────────
-
-const _kRules = [
-  _Rule(
-    '🎯',
-    'The Goal',
-    'Innocents find who has a different word. The imposter must blend in without getting caught.',
-  ),
-  _Rule(
-    '🔑',
-    'Your Word',
-    'Each player privately sees their secret word. Innocents all get the same word. The imposter gets a similar but different one.',
-  ),
-  _Rule(
-    '💬',
-    'Discussion',
-    'Take turns describing your word without saying it directly. Listen carefully — someone\'s description might not quite fit!',
-  ),
-  _Rule(
-    '🗳️',
-    'Voting',
-    'Everyone votes for who they think is the imposter. Most votes gets eliminated.',
-  ),
-  _Rule(
-    '🏆',
-    'Winning',
-    'Innocents win by eliminating all imposters. Imposters win if they survive to equal the innocents.',
-  ),
-  _Rule(
-    '😈',
-    'Imposter Knows',
-    'You see the IMPOSTER label and get a different word. Describe carefully and blend in.',
-  ),
-  _Rule(
-    '🤫',
-    'Secret Mode',
-    'You get a slightly different word but no label. You might accidentally give yourself away!',
-  ),
-  _Rule(
-    '🫥',
-    'Blind Mode',
-    'You see no word at all. Listen to others and bluff your way through discussion.',
-  ),
-];
-
-class _Rule {
-  final String icon, title, desc;
-  const _Rule(this.icon, this.title, this.desc);
-}
+import '../data/rule_data.dart';
+import '../models/rule.dart';
 
 // ─── Colours / constants ─────────────────────────────────────────────────────
 
@@ -461,12 +414,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                           children: [
                             _RuleSection(
                               label: 'Game Rules',
-                              rules: _kRules.sublist(0, 5),
+                              rules: kRules.sublist(0, 5),
                             ),
                             const SizedBox(height: 20),
                             _RuleSection(
                               label: 'Game Modes',
-                              rules: _kRules.sublist(5),
+                              rules: kRules.sublist(5),
                             ),
                             const SizedBox(height: 16),
                             Container(
@@ -620,7 +573,7 @@ class _ActionButton extends StatelessWidget {
 /// Section inside the rules modal.
 class _RuleSection extends StatelessWidget {
   final String label;
-  final List<_Rule> rules;
+  final List<Rule> rules;
 
   const _RuleSection({required this.label, required this.rules});
 
