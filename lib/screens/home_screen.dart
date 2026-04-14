@@ -1,3 +1,4 @@
+import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -210,7 +211,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(height: 16),
           ActionButton(
             label: 'HOST NOW',
-            suffix: '→',
+            suffix: Icons.arrow_forward,
             onTap: () {
               ref
                   .read(gameProvider.notifier)
@@ -283,7 +284,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           const SizedBox(height: 14),
           ActionButton(
             label: 'ENTER ROOM',
-            suffix: '↪',
+            suffix: Icons.redo,
             onTap: () {
               ref
                   .read(gameProvider.notifier)

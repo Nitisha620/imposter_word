@@ -4,6 +4,7 @@ import 'package:word_imposter/services/session_service.dart';
 import 'package:word_imposter/state/game_state.dart';
 import 'package:word_imposter/state/room_state.dart';
 
+import '../data/word_pairs.dart';
 import '../models/chat_message.dart';
 import '../utils/enum.dart';
 
@@ -225,17 +226,47 @@ class GameController extends StateNotifier<GameState> {
   }
 
   void startGame() {
-    // Mirrors handleStart — validation + word assignment
     final players = state.roomState.players.values.toList();
     if (players.length < 3) {
       state = state.copyWith(error: 'Need at least 3 players!');
       return;
     }
     state = state.copyWith(error: '');
-    // Word pair assignment and shuffle happen here — you can port
-    // the full WORD_PAIRS + handleStart logic from App.jsx when ready.
-    // For now patch phase to reveal:
-    patch({'phase': 'reveal'});
+
+    final safeImpCount = (state.roomState.imposterCount).clamp(
+      1,
+      players.length - 2,
+    );
+    final pair =
+        wordPairs[DateTime.now().millisecondsSinceEpoch % wordPairs.length];
+
+    // Shuffle — mirrors the shuffle() function in App.jsx
+    final shuffled = [...players]..shuffle();
+    final assignments = <String, dynamic>{};
+
+    for (int i = 0; i < shuffled.length; i++) {
+      final p = shuffled[i];
+      assignments[p.id] = {
+        'name': p.name,
+        'role': i < safeImpCount ? 'imposter' : 'innocent',
+        'word': i < safeImpCount ? pair[1] : pair[0],
+      };
+    }
+
+    patch({
+      'phase': 'reveal',
+      'assignments': assignments,
+      'mainWord': pair[0],
+      'imposterWord': pair[1],
+      'votes': {},
+      'results': null,
+      'revealReady': {},
+      'gameMode': state.roomState.gameMode,
+      'originalPlayers': state.roomState.players.map(
+        (k, v) => MapEntry(k, v.toJson()),
+      ),
+      'allImposters': shuffled.take(safeImpCount).map((p) => p.id).toList(),
+    });
   }
 
   void markReady() {
@@ -259,7 +290,34 @@ class GameController extends StateNotifier<GameState> {
     });
   }
 
-  void changeWord() => patch({'revealReady': {}});
+  void changeWord() {
+    // Mirrors handleChangeWord in App.jsx — keeps roles, assigns new word pair
+    final players = state.roomState.players.values.toList();
+    if (players.isEmpty) return;
+
+    final pair =
+        wordPairs[DateTime.now().millisecondsSinceEpoch % wordPairs.length];
+    final prevAssignments = state.roomState.assignments ?? {};
+    final newAssignments = <String, dynamic>{};
+
+    for (final p in players) {
+      final prevRole = prevAssignments[p.id]?.role ?? 'innocent';
+      newAssignments[p.id] = {
+        'name': p.name,
+        'role': prevRole,
+        'word': prevRole == 'imposter' ? pair[1] : pair[0],
+      };
+    }
+
+    patch({
+      'assignments': newAssignments,
+      'mainWord': pair[0],
+      'imposterWord': pair[1],
+      'revealReady': {},
+    });
+  }
+
+  // void changeWord() => patch({'revealReady': {}});
   // Full word re-assignment logic from handleChangeWord can be ported here
 
   void backToLobby() {
@@ -279,8 +337,13 @@ class GameController extends StateNotifier<GameState> {
     });
   }
 
-  void startVote() =>
-      patch({'phase': 'voting', 'eliminationAnnouncement': null});
+  // In GameController:
+  void startVote() => patch({
+    'phase': 'voting',
+    'eliminationAnnouncement': null,
+    'discussionEnd': null, // ← add this — prevents stale timer on re-entry
+  });
+  
   // In GameController — fix goToDiscussion():
   void goToDiscussion() {
     // Mirrors handleStartDiscussion in App.jsx:

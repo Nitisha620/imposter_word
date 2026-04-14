@@ -96,6 +96,39 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
   }
 
   @override
+  void didUpdateWidget(RevealScreen old) {
+    super.didUpdateWidget(old);
+
+    // Mirrors React's useState(false) resetting on remount —
+    // when assignments change (new word/new round), reset local reveal state
+    final oldAssignments = old.roomState.assignments;
+    final newAssignments = widget.roomState.assignments;
+
+    // Detect new round: assignments replaced entirely (e.g. after changeWord or playAgain)
+    // Compare mainWord as a proxy — if it changed, new assignments were issued
+    final wordChanged = old.roomState.mainWord != widget.roomState.mainWord;
+    final assignmentsCleared = oldAssignments != null && newAssignments == null;
+
+    if (wordChanged || assignmentsCleared) {
+      setState(() {
+        _confirmed = false;
+        _doneFired = false;
+      });
+      // Restart the lock animation
+      _lockCtrl.repeat(reverse: true);
+      _cardCtrl.reset();
+    }
+
+    // Also reset _doneFired if revealReady was wiped (host changed word mid-round)
+    // Mirrors: onChangeWord resetting revealReady: {}
+    final wasReady = (old.roomState.revealReady?.length ?? 0) > 0;
+    final nowEmpty = (widget.roomState.revealReady?.length ?? 0) == 0;
+    if (wasReady && nowEmpty && _doneFired) {
+      setState(() => _doneFired = false);
+    }
+  }
+
+  @override
   void dispose() {
     _lockCtrl.dispose();
     _cardCtrl.dispose();
@@ -117,8 +150,10 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
   String get _gameMode => widget.roomState.gameMode;
 
   bool get _iMeReady => widget.roomState.revealReady?[widget.myId] ?? false;
-  int get _readyCount =>
-      widget.roomState.revealReady?.values.where((v) => v).length ?? 0;
+  // Fix — mirrors: Object.keys(revealReady).length
+  int get _readyCount => widget.roomState.revealReady?.length ?? 0;
+  /* int get _readyCount =>
+      widget.roomState.revealReady?.values.where((v) => v).length ?? 0; */
   int get _totalPlayers => widget.roomState.assignments?.length ?? 0;
   bool get _allReady => _readyCount >= _totalPlayers;
 
@@ -138,8 +173,9 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
   String get _hintText {
     if (!_isImposter) return 'Describe this word without saying it directly.';
     if (_gameMode == 'knows') return 'You have a different word — blend in!';
-    if (_gameMode == 'secret')
+    if (_gameMode == 'secret') {
       return 'Describe this word without saying it directly.';
+    }
     return '';
   }
 
@@ -400,7 +436,9 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
 
   // ── Roster ─────────────────────────────────────────────────────────────
   Widget _buildRoster() {
-    final players = widget.roomState.players.entries;
+    final playersList = widget.roomState.players.values.toList()
+      ..sort((a, b) => a.joinedAt.compareTo(b.joinedAt));
+    // final players = widget.roomState.players.entries;
     // ..sort((a, b) => a.joinedAt.compareTo(b.joinedAt));
 
     return Column(
@@ -448,15 +486,15 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
             crossAxisSpacing: 10,
             childAspectRatio: 0.78,
           ),
-          itemCount: players.length,
+          itemCount: playersList.length,
           itemBuilder: (context, i) {
-            final p = players.elementAt(i);
-            final isMe = p.value.id == widget.myId;
-            final isHost = p.value.id == widget.roomState.host;
-            final isReady = widget.roomState.revealReady?[p.value.id] ?? false;
+            final p = playersList.elementAt(i);
+            final isMe = p.id == widget.myId;
+            final isHost = p.id == widget.roomState.host;
+            final isReady = widget.roomState.revealReady?[p.id] ?? false;
             final color = _avatarColors[i % _avatarColors.length];
             return _PlayerCard(
-              player: p.value,
+              player: p,
               isMe: isMe,
               isHost: isHost,
               isReady: isReady,
@@ -590,98 +628,103 @@ class _PlayerCard extends StatelessWidget {
         width: 1.2,
       ),
     ),
-    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 10),
-    child: Stack(
-      clipBehavior: Clip.none,
-      children: [
-        Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Avatar
-            Container(
-              width: 44,
-              height: 44,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: avatarColor,
-              ),
-              child: Center(
-                child: Text(
-                  player.name[0].toUpperCase(),
-                  style: const TextStyle(
-                    color: Colors.white,
-                    fontSize: 18,
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 8),
-            // Name
-            Text(
-              isMe ? '${player.name} (You)' : player.name,
-              maxLines: 1,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: _text,
-                fontSize: 11.5,
-                fontWeight: FontWeight.w600,
-              ),
-            ),
-            const SizedBox(height: 6),
-            // Status chip
-            Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                Container(
-                  width: 6,
-                  height: 6,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    color: isReady ? _green : _amber,
-                  ),
-                ),
-                const SizedBox(width: 4),
-                Text(
-                  isReady ? 'READY' : 'WAITING...',
-                  style: TextStyle(
-                    color: isReady ? _green : _amber,
-                    fontSize: 9,
-                    fontWeight: FontWeight.w700,
-                    letterSpacing: 0.5,
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-        // HOST badge
-        if (isHost)
-          Positioned(
-            top: -6,
-            left: 0,
-            right: 0,
-            child: Center(
-              child: Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+    padding: const EdgeInsets.fromLTRB(8, 16, 8, 0),
+    child: Center(
+      child: Stack(
+        clipBehavior: Clip.none,
+        children: [
+          Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Avatar
+              Container(
+                width: 44,
+                height: 44,
                 decoration: BoxDecoration(
-                  color: _accentSoft,
-                  borderRadius: BorderRadius.circular(99),
+                  shape: BoxShape.circle,
+                  color: avatarColor,
                 ),
-                child: const Text(
-                  'HOST',
-                  style: TextStyle(
-                    color: Colors.white,
-                    fontSize: 8,
-                    fontWeight: FontWeight.w800,
-                    letterSpacing: 0.6,
+                child: Center(
+                  child: Text(
+                    player.name[0].toUpperCase(),
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 18,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 8),
+              // Name
+              Text(
+                isMe ? '${player.name} (You)' : player.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                textAlign: TextAlign.center,
+                style: const TextStyle(
+                  color: _text,
+                  fontSize: 14,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+              const SizedBox(height: 6),
+              // Status chip
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Container(
+                    width: 6,
+                    height: 6,
+                    decoration: BoxDecoration(
+                      shape: BoxShape.circle,
+                      color: isReady ? _green : _amber,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  Text(
+                    isReady ? 'READY' : 'WAITING...',
+                    style: TextStyle(
+                      color: isReady ? _green : _amber,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                      letterSpacing: 0.5,
+                    ),
+                  ),
+                ],
+              ),
+            ],
+          ),
+          // HOST badge
+          if (isHost)
+            Positioned(
+              top: -6,
+              left: 0,
+              right: 0,
+              child: Center(
+                child: Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 6,
+                    vertical: 2,
+                  ),
+                  decoration: BoxDecoration(
+                    color: _accentSoft,
+                    borderRadius: BorderRadius.circular(99),
+                  ),
+                  child: const Text(
+                    'HOST',
+                    style: TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                      letterSpacing: 0.6,
+                    ),
                   ),
                 ),
               ),
             ),
-          ),
-      ],
+        ],
+      ),
     ),
   );
 }

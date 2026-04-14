@@ -137,10 +137,6 @@ class VotingScreen extends StatelessWidget {
                       fontWeight: FontWeight.w900,
                       color: _purple,
                       letterSpacing: 4,
-                      shadows: const [
-                        Shadow(blurRadius: 24, color: _purple),
-                        Shadow(blurRadius: 48, color: Color(0xFF00E5FF)),
-                      ],
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -227,9 +223,7 @@ class VotingScreen extends StatelessWidget {
                         hasVoted: hasVoted,
                         canVote: canVote,
                         voteCount: count,
-                        onTap: canVote
-                            ? () => onCastVote(p.id)
-                            : null,
+                        onTap: canVote ? () => onCastVote(p.id) : null,
                       );
                     },
                   ),
@@ -449,9 +443,9 @@ class _VoteCard extends StatelessWidget {
             ),
 
             // ── main content ───────────────────────────────────────────────
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 16),
+            Center(
               child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   // Avatar
@@ -461,12 +455,6 @@ class _VoteCard extends StatelessWidget {
                     decoration: BoxDecoration(
                       color: avatarColor,
                       shape: BoxShape.circle,
-                      boxShadow: [
-                        BoxShadow(
-                          color: avatarColor.withOpacity(0.4),
-                          blurRadius: 12,
-                        ),
-                      ],
                     ),
                     alignment: Alignment.center,
                     child: Text(
@@ -478,23 +466,20 @@ class _VoteCard extends StatelessWidget {
                       ),
                     ),
                   ),
-
-                  const SizedBox(height: 8),
-
+                  const SizedBox(height: 10),
                   // Name
                   Text(
                     name,
                     overflow: TextOverflow.ellipsis,
                     style: GoogleFonts.inter(
-                      fontSize: 13,
+                      fontSize: 15,
                       fontWeight: FontWeight.w600,
                       color: Colors.white,
                     ),
                   ),
-
                   // YOU badge
                   if (isSelf) ...[
-                    const SizedBox(height: 4),
+                    const SizedBox(height: 6),
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 8,
@@ -508,7 +493,7 @@ class _VoteCard extends StatelessWidget {
                       child: Text(
                         'YOU',
                         style: GoogleFonts.barlow(
-                          fontSize: 9,
+                          fontSize: 12,
                           fontWeight: FontWeight.w800,
                           color: _purple,
                           letterSpacing: 1,
@@ -523,7 +508,7 @@ class _VoteCard extends StatelessWidget {
                   Text(
                     '$voteCount ${voteCount == 1 ? 'vote' : 'votes'}',
                     style: GoogleFonts.barlow(
-                      fontSize: 12,
+                      fontSize: 18,
                       fontWeight: FontWeight.w700,
                       color: voteCount > 0 ? Colors.white : _white38,
                       letterSpacing: 0.5,

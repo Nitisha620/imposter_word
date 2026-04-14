@@ -2,9 +2,11 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:word_imposter/state/room_state.dart';
 
 import '../models/chat_message.dart';
 import '../models/eliminated_entry.dart';
+import '../state/player_info.dart';
 
 // ── Palette ────────────────────────────────────────────────────────────────
 const _bg = Color(0xFF0A0814);
@@ -31,7 +33,7 @@ const _avatarColors = [
 
 // ── Screen ─────────────────────────────────────────────────────────────────
 class DiscussionScreen extends ConsumerStatefulWidget {
-  final dynamic roomState; // your RoomState type
+  final RoomState roomState; // your RoomState type
   final String myId;
   final bool isHost;
   final bool isEliminated;
@@ -61,56 +63,64 @@ class _DiscussionScreenState extends ConsumerState<DiscussionScreen>
   late Timer? _timer;
   int _timeLeft = 0;
 
+  // Add to _DiscussionScreenState fields:
+  bool _voteFired = false;
+
   // ── Derived helpers ───────────────────────────────────────────────────
   // Replace these getters with your actual RoomState field access
-  DateTime? get _endTime =>
-      DateTime.now(); /*  widget.roomState?.discussionEnd as DateTime?; */
-  int get _timerSecs => (widget.roomState?.timerSecs as int?) ?? 120;
+  DateTime? get _endTime {
+    final ms = widget.roomState.discussionEnd;
+    if (ms == null) return null;
+    return DateTime.fromMillisecondsSinceEpoch(ms);
+  }
+
+  int get _timerSecs => widget.roomState.timerSecs;
   bool get _hasTimer => _endTime != null && _timerSecs > 0;
   bool get _urgent => _hasTimer && _timeLeft <= 20;
   int get _elimCount => _eliminatedEntries.length;
 
   Map<String, dynamic> get _players =>
-      (widget.roomState?.players as Map<String, dynamic>?) ?? {};
+      (widget.roomState.players as Map<String, dynamic>?) ?? {};
 
-  bool get _isImposter => false;
-  /* (_assignments[widget.myId]?['role'] as String?) == 'imposter'; */
+  bool get _isImposter =>
+      widget.roomState.assignments?[widget.myId]?.role == 'imposter';
 
-  List<EliminatedEntry> get _eliminatedEntries {
-    final raw = /* (widget.roomState?.eliminatedSoFar as List?) ?? */ [];
-    return raw.map((e) {
-      if (e is Map) {
-        return EliminatedEntry(
-          id: e['id'] as String,
-          name: e['name'] as String,
-        );
-      }
-      return EliminatedEntry(id: e as String, name: 'Unknown');
-    }).toList();
-  }
+  // Fix _eliminatedEntries:
+  List<EliminatedEntry> get _eliminatedEntries => widget
+      .roomState
+      .eliminatedSoFar
+      .map(
+        (e) => EliminatedEntry(
+          id: e['id']?.toString() ?? '',
+          name: e['name']?.toString() ?? 'Unknown',
+        ),
+      )
+      .toList();
 
-  List<MapEntry<String, dynamic>> get _allPlayers {
-    final list = _players.entries.toList();
-    /* ist.sort(
-      (a, b) => ((a.value['joinedAt'] as int?) ?? 0).compareTo(
-        (b.value['joinedAt'] as int?) ?? 0,
-      ),
-    ); */
-    return list;
-  }
+  List<PlayerInfo> get _allPlayersList =>
+      widget.roomState.players.values.toList()
+        ..sort((a, b) => a.joinedAt.compareTo(b.joinedAt));
 
-  List<MapEntry<String, dynamic>> get _activePlayers {
+  List<PlayerInfo> get _activePlayersList {
     final elimIds = _eliminatedEntries.map((e) => e.id).toSet();
-    return _allPlayers.where((e) => !elimIds.contains(e.key)).toList();
+    return _allPlayersList.where((p) => !elimIds.contains(p.id)).toList();
   }
 
   int _avatarIndex(String id) {
-    final idx = _allPlayers.indexWhere((e) => e.key == id);
+    final idx = _allPlayersList.indexWhere((p) => p.id == id);
     return idx >= 0 ? idx : 0;
   }
 
   String get _roundLabel =>
       _elimCount > 0 ? 'ROUND ${_elimCount + 1}' : 'ROUND 01';
+
+  String get _hintText {
+    if (widget.roomState.tieVote) {
+      return 'It was a tie! Discuss again and vote.';
+    }
+    if (_isImposter) return 'Blend in. Don\'t reveal your word.';
+    return 'Analyze clues. Find the imposter.';
+  }
 
   // ── Lifecycle ─────────────────────────────────────────────────────────
   @override
@@ -120,14 +130,39 @@ class _DiscussionScreenState extends ConsumerState<DiscussionScreen>
   }
 
   void _initTimer() {
+    _voteFired = false; // reset every time timer is initialized
+
     if (!_hasTimer) {
       _timer = null;
       return;
     }
+
     _timeLeft = _calcTimeLeft();
+
+    // Skip the first tick — prevents firing immediately if discussionEnd
+    // is already in the past when we initialize (e.g. after a tie vote restart)
+    bool firstTick = true;
+
     _timer = Timer.periodic(const Duration(milliseconds: 500), (_) {
+      if (!mounted) return;
       final t = _calcTimeLeft();
-      if (mounted) setState(() => _timeLeft = t);
+      setState(() => _timeLeft = t);
+
+      if (firstTick) {
+        firstTick = false;
+        return;
+      }
+
+      // Guard: don't fire if we already fired, or if we're not the host,
+      // or if the phase has changed away from discussion
+      if (t == 0 && widget.isHost && !_voteFired) {
+        _voteFired = true;
+        _timer?.cancel();
+        // Post-frame to avoid calling setState/navigation during build
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (mounted) widget.onStartVote();
+        });
+      }
     });
   }
 
@@ -165,6 +200,22 @@ class _DiscussionScreenState extends ConsumerState<DiscussionScreen>
   @override
   void didUpdateWidget(covariant DiscussionScreen old) {
     super.didUpdateWidget(old);
+
+    // ── Stop timer if phase changed away from discussion ──────────────
+    // This happens when host kicks → results, or vote fires → voting
+    if (widget.roomState.phase != 'discussion') {
+      _timer?.cancel();
+      _timer = null;
+      return; // no need to do anything else
+    }
+
+    // ── Restart timer when discussionEnd changes ───────────────────────
+    if (old.roomState.discussionEnd != widget.roomState.discussionEnd) {
+      _timer?.cancel();
+      _initTimer();
+    }
+
+    // ── Auto-scroll on new chat messages ──────────────────────────────
     if (widget.chatMessages.length != old.chatMessages.length) {
       Future.delayed(const Duration(milliseconds: 80), _scrollToBottom);
     }
@@ -209,17 +260,32 @@ class _DiscussionScreenState extends ConsumerState<DiscussionScreen>
     ),
     child: Row(
       children: [
-        _RoleBadge(
-          label: widget.isEliminated
-              ? '💀 SPECTATING'
-              : _isImposter
-              ? '😈 IMPOSTER'
-              : '🕵️ INNOCENT',
-          variant: widget.isEliminated
-              ? _BadgeVariant.dead
-              : _isImposter
-              ? _BadgeVariant.imposter
-              : _BadgeVariant.innocent,
+        Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _RoleBadge(
+              label: widget.isEliminated
+                  ? '💀 SPECTATING'
+                  : _isImposter
+                  ? '😈 IMPOSTER'
+                  : '🕵️ INNOCENT',
+              variant: widget.isEliminated
+                  ? _BadgeVariant.dead
+                  : _isImposter
+                  ? _BadgeVariant.imposter
+                  : _BadgeVariant.innocent,
+            ),
+            const SizedBox(height: 8),
+            // Mirrors: <p className="disc-hint-text">
+            Text(
+              _hintText,
+              style: const TextStyle(
+                color: _textMuted,
+                fontSize: 12,
+                height: 1.4,
+              ),
+            ),
+          ],
         ),
         const Spacer(),
         if (_hasTimer)
@@ -255,8 +321,8 @@ class _DiscussionScreenState extends ConsumerState<DiscussionScreen>
         Row(
           children: [
             // Active players
-            ..._activePlayers.map((entry) {
-              final p = entry.value;
+            ..._activePlayersList.map((entry) {
+              final p = entry;
               final id = p.id;
               // ignore: unnecessary_cast
               final name = p.name;
@@ -487,7 +553,7 @@ class _TimerBlock extends StatelessWidget {
     final mins = timeLeft ~/ 60;
     final secs = timeLeft % 60;
     final color = urgent ? _red : _text;
-    return Row(
+    return Column(
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Text(

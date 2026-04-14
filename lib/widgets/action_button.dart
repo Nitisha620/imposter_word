@@ -5,7 +5,7 @@ const _purple = Color(0xFF7C6EF5);
 
 class ActionButton extends StatelessWidget {
   final String label;
-  final String suffix;
+  final IconData suffix;
   final VoidCallback onTap;
 
   const ActionButton({
@@ -20,10 +20,11 @@ class ActionButton extends StatelessWidget {
     return GestureDetector(
       onTap: onTap,
       child: Row(
+        spacing: 8,
         mainAxisSize: MainAxisSize.min,
         children: [
           Text(
-            '$label  $suffix',
+            label,
             style: GoogleFonts.barlow(
               fontSize: 13,
               fontWeight: FontWeight.w700,
@@ -31,6 +32,7 @@ class ActionButton extends StatelessWidget {
               letterSpacing: 0.8,
             ),
           ),
+          Icon(suffix, color: _purple, ),
         ],
       ),
     );

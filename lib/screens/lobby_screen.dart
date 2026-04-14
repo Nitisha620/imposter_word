@@ -5,6 +5,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
 
 import '../models/chat_message.dart';
+import '../models/pill_item.dart';
 import '../state/player_info.dart';
 import '../state/room_state.dart';
 
@@ -35,10 +36,7 @@ const _avatarColors = [
 
 const _timerPresets = [0, 60, 120, 180, 300];
 
-// ─── Data models (keep in sync with your game_state.dart) ────────────────────
-
 // ─── LobbyScreen ─────────────────────────────────────────────────────────────
-
 class LobbyScreen extends ConsumerStatefulWidget {
   final String roomCode;
   final String myId;
@@ -80,11 +78,21 @@ class LobbyScreen extends ConsumerStatefulWidget {
 
 class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   bool _copied = false;
-  String? _kickConfirm;
-  Timer? _kickTimer;
+
   final _chatCtrl = TextEditingController();
   final _chatScrollCtrl = ScrollController();
   bool _showChat = false;
+
+  int _lastSeenCount = 0;
+  int get _unreadCount {
+    if (_showChat) {
+      _lastSeenCount = widget.chatMessages.length;
+      return 0;
+    }
+    return widget.chatMessages.length - _lastSeenCount;
+  }
+
+  bool get _isWideScreen => MediaQuery.of(context).size.width > 700;
 
   // ── derived ────────────────────────────────────────────────────────────────
   List<PlayerInfo> get _players =>
@@ -114,18 +122,60 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   }
 
   // ── kick ───────────────────────────────────────────────────────────────────
-  void _handleKick(String id) {
-    if (_kickConfirm == id) {
-      widget.onKick(id);
-      setState(() => _kickConfirm = null);
-      _kickTimer?.cancel();
+  void _showKickSheet(
+    BuildContext context,
+    PlayerInfo player,
+    Color avatarColor,
+  ) {
+    final isWebOrDesktop =
+        Theme.of(context).platform == TargetPlatform.linux ||
+        Theme.of(context).platform == TargetPlatform.windows ||
+        Theme.of(context).platform == TargetPlatform.macOS;
+
+    if (isWebOrDesktop) {
+      _showKickDialog(context, player, avatarColor);
     } else {
-      setState(() => _kickConfirm = id);
-      _kickTimer?.cancel();
-      _kickTimer = Timer(const Duration(seconds: 3), () {
-        if (mounted) setState(() => _kickConfirm = null);
-      });
+      _showKickBottomSheet(context, player, avatarColor);
     }
+  }
+
+  void _showKickBottomSheet(
+    BuildContext context,
+    PlayerInfo player,
+    Color avatarColor,
+  ) {
+    showModalBottomSheet(
+      context: context,
+      backgroundColor: Colors.transparent,
+      builder: (_) => _KickBottomSheet(
+        player: player,
+        avatarColor: avatarColor, // ← pass it in
+        onKick: () {
+          Navigator.pop(context);
+          widget.onKick(player.id);
+        },
+        onCancel: () => Navigator.pop(context),
+      ),
+    );
+  }
+
+  void _showKickDialog(
+    BuildContext context,
+    PlayerInfo player,
+    Color avatarColor,
+  ) {
+    showDialog(
+      context: context,
+      builder: (_) => _KickDialog(
+        player: player,
+        avatarColor: avatarColor, // ← pass it in
+        onKick: () {
+          Navigator.pop(context);
+          widget.onKick(player.id);
+        },
+        onCancel: () => Navigator.pop(context),
+      ),
+    );
   }
 
   // ── chat ───────────────────────────────────────────────────────────────────
@@ -155,16 +205,17 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   @override
   void didUpdateWidget(LobbyScreen old) {
     super.didUpdateWidget(old);
-    // Mirror: if (impCount > maxImp && isHost) onImposterCount(maxImp)
+
     if (widget.isHost && _impCount > _maxImp) {
-      // Post-frame to avoid calling setState during build
       WidgetsBinding.instance.addPostFrameCallback((_) {
         widget.onImposterCount(_maxImp);
       });
     }
 
-    // Mirror: useEffect on chatMessages — scroll to bottom when new message arrives
     if (widget.chatMessages.length != old.chatMessages.length) {
+      // If chat is open, mark all as seen immediately
+      if (_showChat) _lastSeenCount = widget.chatMessages.length;
+
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (_chatScrollCtrl.hasClients) {
           _chatScrollCtrl.animateTo(
@@ -185,16 +236,209 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
         backgroundColor: _bg,
+        floatingActionButton: _isWideScreen || _showChat
+            ? null
+            : _buildChatFab(),
         body: SafeArea(
+          child: _isWideScreen
+              ? _buildWideLayout() // web: side-by-side
+              : _buildMobileLayout(), // mobile: stack with overlay
+        ),
+      ),
+    );
+  }
+
+  // ── CODE HERO ──────────────────────────────────────────────────────────────
+  Widget _buildMobileLayout() {
+    return Stack(
+      children: [
+        // Main lobby content
+        Column(
+          children: [
+            Expanded(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.symmetric(horizontal: 16),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    const SizedBox(height: 16),
+                    _buildCodeHero(),
+                    const SizedBox(height: 16),
+                    _buildPlayerGrid(),
+                    if (widget.error != null) ...[
+                      const SizedBox(height: 12),
+                      _buildErrorBox(),
+                    ],
+                    const SizedBox(height: 16),
+                    _buildSettingsCard(),
+                    const SizedBox(height: 80), // room for FAB
+                  ],
+                ),
+              ),
+            ),
+            _buildActionBar(),
+          ],
+        ),
+
+        // Chat overlay — slides up from bottom
+        if (_showChat) _buildMobileChatOverlay(),
+      ],
+    );
+  }
+
+  Widget _buildMobileChatOverlay() {
+    return Positioned.fill(
+      child: GestureDetector(
+        onTap: () => setState(() => _showChat = false),
+        child: Container(
+          color: Colors.black.withOpacity(0.5),
+          child: Align(
+            alignment: Alignment.bottomCenter,
+            child: GestureDetector(
+              onTap: () {}, // prevent tap-through
+              child: Container(
+                height: MediaQuery.of(context).size.height * 0.72,
+                decoration: const BoxDecoration(
+                  color: Color(0xFF0E1422),
+                  borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                ),
+                child: Column(
+                  children: [
+                    // Handle + header
+                    Padding(
+                      padding: const EdgeInsets.fromLTRB(20, 14, 16, 0),
+                      child: Column(
+                        children: [
+                          // Drag handle
+                          Center(
+                            child: Container(
+                              width: 40,
+                              height: 4,
+                              decoration: BoxDecoration(
+                                color: _white38,
+                                borderRadius: BorderRadius.circular(2),
+                              ),
+                            ),
+                          ),
+                          const SizedBox(height: 14),
+                          Row(
+                            children: [
+                              Text(
+                                'LOBBY CHAT',
+                                style: GoogleFonts.barlow(
+                                  fontSize: 14,
+                                  fontWeight: FontWeight.w800,
+                                  color: _purple,
+                                  letterSpacing: 2,
+                                ),
+                              ),
+                              const Spacer(),
+                              GestureDetector(
+                                onTap: () => setState(() => _showChat = false),
+                                child: Container(
+                                  width: 32,
+                                  height: 32,
+                                  decoration: BoxDecoration(
+                                    color: _white12,
+                                    shape: BoxShape.circle,
+                                  ),
+                                  child: const Icon(
+                                    Icons.close_rounded,
+                                    color: _white70,
+                                    size: 16,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ],
+                      ),
+                    ),
+                    Divider(color: _border, height: 20),
+                    // Messages
+                    Expanded(child: _buildChatMessagesList()),
+                    // Input
+                    _buildChatInputRow(),
+                    SizedBox(height: MediaQuery.of(context).padding.bottom + 8),
+                  ],
+                ),
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildChatFab() {
+    final unread = _unreadCount;
+    return GestureDetector(
+      onTap: () => setState(() {
+        _showChat = true;
+        _lastSeenCount = widget.chatMessages.length;
+      }),
+      child: Container(
+        width: 56,
+        height: 56,
+        decoration: BoxDecoration(
+          color: _purple,
+          shape: BoxShape.circle,
+          boxShadow: [
+            BoxShadow(
+              color: _purple.withOpacity(0.4),
+              blurRadius: 16,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Stack(
+          children: [
+            const Center(
+              child: Icon(Icons.chat_rounded, color: Colors.white, size: 24),
+            ),
+            if (unread > 0)
+              Positioned(
+                top: 8,
+                right: 8,
+                child: Container(
+                  width: 18,
+                  height: 18,
+                  decoration: const BoxDecoration(
+                    color: Colors.red,
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    unread > 9 ? '9+' : '$unread',
+                    style: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildWideLayout() {
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        // Left: main lobby content
+        Expanded(
+          flex: 3,
           child: Column(
             children: [
               Expanded(
                 child: SingleChildScrollView(
-                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  padding: const EdgeInsets.fromLTRB(20, 16, 12, 16),
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
-                      const SizedBox(height: 16),
                       _buildCodeHero(),
                       const SizedBox(height: 16),
                       _buildPlayerGrid(),
@@ -204,8 +448,6 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       ],
                       const SizedBox(height: 16),
                       _buildSettingsCard(),
-                      const SizedBox(height: 12),
-                      _buildChatCard(),
                       const SizedBox(height: 16),
                     ],
                   ),
@@ -215,11 +457,227 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             ],
           ),
         ),
+
+        // Divider
+        VerticalDivider(color: _border, width: 1),
+
+        // Right: persistent chat panel
+        SizedBox(width: 300, child: _buildWebChatPanel()),
+      ],
+    );
+  }
+
+  Widget _buildWebChatPanel() {
+    return Container(
+      color: const Color(0xFF0E1422),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          // Header
+          Container(
+            padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
+            decoration: BoxDecoration(
+              border: Border(bottom: BorderSide(color: _border)),
+            ),
+            child: Row(
+              children: [
+                const Icon(Icons.chat_rounded, color: _purple, size: 16),
+                const SizedBox(width: 8),
+                Text(
+                  'LOBBY CHAT',
+                  style: GoogleFonts.barlow(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w800,
+                    color: _purple,
+                    letterSpacing: 2,
+                  ),
+                ),
+                if (widget.chatMessages.isNotEmpty) ...[
+                  const Spacer(),
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 7,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _purple.withOpacity(0.2),
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    child: Text(
+                      '${widget.chatMessages.length}',
+                      style: GoogleFonts.barlow(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w700,
+                        color: _purple,
+                      ),
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+
+          // Messages
+          Expanded(child: _buildChatMessagesList()),
+
+          // Input
+          Container(
+            decoration: BoxDecoration(
+              border: Border(top: BorderSide(color: _border)),
+            ),
+            child: _buildChatInputRow(),
+          ),
+        ],
       ),
     );
   }
 
-  // ── CODE HERO ──────────────────────────────────────────────────────────────
+  Widget _buildChatMessagesList() {
+    if (widget.chatMessages.isEmpty) {
+      return Center(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('💬', style: TextStyle(fontSize: 32)),
+            const SizedBox(height: 10),
+            Text(
+              'No messages yet',
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: _white38,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            const SizedBox(height: 4),
+            Text(
+              'Say hi to your lobby!',
+              style: GoogleFonts.inter(fontSize: 12, color: _white38),
+            ),
+          ],
+        ),
+      );
+    }
+
+    return ListView.builder(
+      controller: _chatScrollCtrl,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      itemCount: widget.chatMessages.length,
+      itemBuilder: (_, i) {
+        final msg = widget.chatMessages[i];
+        final isMe = msg.senderId == widget.myId;
+        final pIdx = _players.indexWhere((p) => p.id == msg.senderId);
+        final color =
+            _avatarColors[(pIdx >= 0 ? pIdx : 0) % _avatarColors.length];
+
+        return Padding(
+          padding: const EdgeInsets.only(bottom: 10),
+          child: isMe
+              ? Align(
+                  alignment: Alignment.centerRight,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      Text(
+                        'You',
+                        style: GoogleFonts.inter(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: color,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      _ChatBubble(text: msg.text, isMe: true, color: color),
+                    ],
+                  ),
+                )
+              : Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      msg.senderName,
+                      style: GoogleFonts.inter(
+                        fontSize: 11,
+                        fontWeight: FontWeight.w600,
+                        color: color,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    _ChatBubble(text: msg.text, isMe: false, color: color),
+                  ],
+                ),
+        );
+      },
+    );
+  }
+
+  Widget _buildChatInputRow() {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      child: Row(
+        children: [
+          Expanded(
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
+              decoration: BoxDecoration(
+                color: _bg,
+                borderRadius: BorderRadius.circular(12),
+                border: Border.all(color: _border),
+              ),
+              child: TextField(
+                controller: _chatCtrl,
+                style: GoogleFonts.inter(color: Colors.white, fontSize: 13),
+                cursorColor: _purple,
+                maxLength: 200,
+                textInputAction: TextInputAction.send,
+                onSubmitted: (_) => _sendChat(),
+                decoration: InputDecoration(
+                  hintText: 'Send a message…',
+                  hintStyle: GoogleFonts.inter(color: _white38, fontSize: 13),
+                  border: InputBorder.none,
+                  counterText: '',
+                  isDense: true,
+                  contentPadding: const EdgeInsets.symmetric(vertical: 10),
+                ),
+              ),
+            ),
+          ),
+          const SizedBox(width: 8),
+          ValueListenableBuilder<TextEditingValue>(
+            valueListenable: _chatCtrl,
+            builder: (_, val, __) {
+              final empty = val.text.trim().isEmpty;
+              return GestureDetector(
+                onTap: empty ? null : _sendChat,
+                child: AnimatedContainer(
+                  duration: const Duration(milliseconds: 150),
+                  width: 40,
+                  height: 40,
+                  decoration: BoxDecoration(
+                    color: empty ? _white12 : _purple,
+                    borderRadius: BorderRadius.circular(12),
+                    boxShadow: empty
+                        ? []
+                        : [
+                            BoxShadow(
+                              color: _purple.withOpacity(0.4),
+                              blurRadius: 8,
+                            ),
+                          ],
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(
+                    Icons.send_rounded,
+                    color: empty ? _white38 : Colors.white,
+                    size: 18,
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
 
   Widget _buildCodeHero() {
     return Container(
@@ -230,7 +688,6 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       ),
       child: Stack(
         children: [
-          // 🔴 LEAVE BUTTON (TOP RIGHT)
           Positioned(
             top: 10,
             right: 10,
@@ -260,7 +717,6 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           ),
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
-
             child: Column(
               children: [
                 Text(
@@ -283,7 +739,6 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                         fontWeight: FontWeight.w900,
                         color: _purple,
                         letterSpacing: 4,
-                        shadows: const [Shadow(blurRadius: 16, color: _purple)],
                       ),
                     ),
                     const SizedBox(width: 12),
@@ -350,140 +805,135 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   }
 
   Widget _buildPlayerCard(PlayerInfo p, int idx) {
-    final isHost = p.id == widget.roomState.host;
+    final isHostPlayer = p.id == widget.roomState.host;
     final avatarClr = _avatarColors[idx % _avatarColors.length];
-    final isKicking = _kickConfirm == p.id;
+    final canKick = widget.isHost && p.id != widget.myId;
 
-    return Container(
-      decoration: BoxDecoration(
-        color: isHost ? _purple.withOpacity(0.08) : _card,
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: isHost ? _purple.withOpacity(0.4) : _border),
-      ),
-      padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          // HOST badge
-          if (isHost)
-            Positioned(
-              top: -18,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _purple,
-                    borderRadius: BorderRadius.circular(6),
-                  ),
-                  child: Text(
-                    'HOST',
-                    style: GoogleFonts.barlow(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                      letterSpacing: 1,
+    return GestureDetector(
+      // Host taps any other player's card to see kick option
+      onTap: canKick ? () => _showKickSheet(context, p, avatarClr) : null,
+      child: Container(
+        decoration: BoxDecoration(
+          color: isHostPlayer ? _purple.withOpacity(0.08) : _card,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isHostPlayer ? _purple.withOpacity(0.4) : _border,
+          ),
+        ),
+        padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
+        child: Stack(
+          clipBehavior: Clip.none,
+          children: [
+            // HOST badge
+            if (isHostPlayer)
+              Positioned(
+                top: -18,
+                left: 0,
+                right: 0,
+                child: Center(
+                  child: Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 2,
+                    ),
+                    decoration: BoxDecoration(
+                      color: _purple,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      'HOST',
+                      style: GoogleFonts.barlow(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w800,
+                        color: Colors.white,
+                        letterSpacing: 1,
+                      ),
                     ),
                   ),
                 ),
               ),
-            ),
 
-          // Kick button
-          if (widget.isHost && p.id != widget.myId)
-            Positioned(
-              top: -6,
-              right: -6,
-              child: GestureDetector(
-                onTap: () => _handleKick(p.id),
+            // Small "⋮" indicator for host so they know card is tappable
+            if (canKick)
+              Positioned(
+                top: -4,
+                right: -4,
                 child: Container(
-                  width: 20,
-                  height: 20,
+                  width: 18,
+                  height: 18,
                   decoration: BoxDecoration(
-                    color: isKicking
-                        ? _purple.withOpacity(0.9)
-                        : Colors.white.withOpacity(0.08),
+                    color: _white12,
                     shape: BoxShape.circle,
                     border: Border.all(color: _border),
                   ),
                   alignment: Alignment.center,
-                  child: Text(
-                    isKicking ? '?' : '✕',
-                    style: TextStyle(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      color: isKicking ? Colors.white : _white70,
-                    ),
+                  child: const Text(
+                    '⋮',
+                    style: TextStyle(fontSize: 10, color: _white38, height: 1),
                   ),
                 ),
               ),
-            ),
 
-          // Main content
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Avatar circle
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  color: avatarClr,
-                  shape: BoxShape.circle,
-                ),
-                alignment: Alignment.center,
-                child: Text(
-                  p.name[0].toUpperCase(),
-                  style: GoogleFonts.barlow(
-                    fontSize: 20,
-                    fontWeight: FontWeight.w800,
-                    color: Colors.white,
+            // Main content — unchanged
+            Column(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Container(
+                  width: 44,
+                  height: 44,
+                  decoration: BoxDecoration(
+                    color: avatarClr,
+                    shape: BoxShape.circle,
                   ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              Text(
-                p.name,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: GoogleFonts.inter(
-                  fontSize: 11,
-                  color: Colors.white,
-                  fontWeight: FontWeight.w500,
-                ),
-              ),
-              const SizedBox(height: 4),
-              // READY pill
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: const BoxDecoration(
-                      color: _green,
-                      shape: BoxShape.circle,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    'READY',
+                  alignment: Alignment.center,
+                  child: Text(
+                    p.name[0].toUpperCase(),
                     style: GoogleFonts.barlow(
-                      fontSize: 9,
-                      fontWeight: FontWeight.w700,
-                      color: _green,
-                      letterSpacing: 0.8,
+                      fontSize: 20,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
                     ),
                   ),
-                ],
-              ),
-            ],
-          ),
-        ],
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  p.name,
+                  overflow: TextOverflow.ellipsis,
+                  textAlign: TextAlign.center,
+                  style: GoogleFonts.inter(
+                    fontSize: 11,
+                    color: Colors.white,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    Container(
+                      width: 6,
+                      height: 6,
+                      decoration: const BoxDecoration(
+                        color: _green,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 4),
+                    Text(
+                      'READY',
+                      style: GoogleFonts.barlow(
+                        fontSize: 9,
+                        fontWeight: FontWeight.w700,
+                        color: _green,
+                        letterSpacing: 0.8,
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -543,9 +993,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             label: 'GAME MODE',
             child: _PillRow(
               items: const [
-                _PillItem('knows', '😈 Knows'),
-                _PillItem('secret', '🤫 Secret'),
-                _PillItem('blind', '🫥 Blind'),
+                PillItem('knows', '😈 Knows'),
+                PillItem('secret', '🤫 Secret'),
+                PillItem('blind', '🫥 Blind'),
               ],
               selected: _gameMode,
               enabled: widget.isHost,
@@ -581,7 +1031,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             child: _PillRow(
               items: [1, 2, 3]
                   .where((n) => n <= _maxImp)
-                  .map((n) => _PillItem(n.toString(), n.toString()))
+                  .map((n) => PillItem(n.toString(), n.toString()))
                   .toList(),
               selected: _impCount.toString(),
               enabled: widget.isHost,
@@ -609,212 +1059,6 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
               }).toList(),
             ),
           ),
-        ],
-      ),
-    );
-  }
-
-  // ── CHAT CARD ──────────────────────────────────────────────────────────────
-
-  Widget _buildChatCard() {
-    return Container(
-      decoration: BoxDecoration(
-        color: _card,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _border),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          // Header — tap to expand/collapse
-          GestureDetector(
-            onTap: () => setState(() => _showChat = !_showChat),
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 14),
-              child: Row(
-                children: [
-                  Text(
-                    'LOBBY CHAT',
-                    style: GoogleFonts.barlow(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w800,
-                      color: _purple,
-                      letterSpacing: 2,
-                    ),
-                  ),
-                  if (widget.chatMessages.isNotEmpty)
-                    Container(
-                      margin: const EdgeInsets.only(left: 8),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 7,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _purple.withOpacity(0.2),
-                        borderRadius: BorderRadius.circular(8),
-                      ),
-                      child: Text(
-                        '${widget.chatMessages.length}',
-                        style: GoogleFonts.barlow(
-                          fontSize: 11,
-                          fontWeight: FontWeight.w700,
-                          color: _purple,
-                        ),
-                      ),
-                    ),
-                  const Spacer(),
-                  Icon(
-                    _showChat
-                        ? Icons.keyboard_arrow_up
-                        : Icons.keyboard_arrow_down,
-                    color: _white38,
-                    size: 20,
-                  ),
-                ],
-              ),
-            ),
-          ),
-
-          if (_showChat) ...[
-            Divider(color: _border, height: 1),
-
-            // Messages
-            SizedBox(
-              height: 180,
-              child: widget.chatMessages.isEmpty
-                  ? Center(
-                      child: Text(
-                        'No messages yet…',
-                        style: GoogleFonts.inter(fontSize: 13, color: _white38),
-                      ),
-                    )
-                  : ListView.builder(
-                      controller: _chatScrollCtrl,
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 14,
-                        vertical: 10,
-                      ),
-                      itemCount: widget.chatMessages.length,
-                      itemBuilder: (_, i) {
-                        final msg = widget.chatMessages[i];
-                        final isMe = msg.senderId == widget.myId;
-                        final pIdx = _players.indexWhere(
-                          (p) => p.id == msg.senderId,
-                        );
-                        final color =
-                            _avatarColors[(pIdx >= 0 ? pIdx : 0) %
-                                _avatarColors.length];
-
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: isMe
-                              ? Align(
-                                  alignment: Alignment.centerRight,
-                                  child: _ChatBubble(
-                                    text: msg.text,
-                                    isMe: true,
-                                    color: color,
-                                  ),
-                                )
-                              : Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    Text(
-                                      msg.senderName,
-                                      style: GoogleFonts.inter(
-                                        fontSize: 11,
-                                        fontWeight: FontWeight.w600,
-                                        color: color,
-                                      ),
-                                    ),
-                                    const SizedBox(height: 2),
-                                    _ChatBubble(
-                                      text: msg.text,
-                                      isMe: false,
-                                      color: color,
-                                    ),
-                                  ],
-                                ),
-                        );
-                      },
-                    ),
-            ),
-
-            Divider(color: _border, height: 1),
-
-            // Input row
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-              child: Row(
-                children: [
-                  Expanded(
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 2,
-                      ),
-                      decoration: BoxDecoration(
-                        color: _bg,
-                        borderRadius: BorderRadius.circular(10),
-                        border: Border.all(color: _border),
-                      ),
-                      child: TextField(
-                        controller: _chatCtrl,
-                        style: GoogleFonts.inter(
-                          color: Colors.white,
-                          fontSize: 13,
-                        ),
-                        cursorColor: _purple,
-                        maxLength: 200,
-                        textInputAction: TextInputAction.send,
-                        onSubmitted: (_) => _sendChat(),
-                        decoration: InputDecoration(
-                          hintText: 'Send a message...',
-                          hintStyle: GoogleFonts.inter(
-                            color: _white38,
-                            fontSize: 13,
-                          ),
-                          border: InputBorder.none,
-                          counterText: '',
-                          isDense: true,
-                          contentPadding: const EdgeInsets.symmetric(
-                            vertical: 10,
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 8),
-                  ValueListenableBuilder<TextEditingValue>(
-                    valueListenable: _chatCtrl,
-                    builder: (_, val, __) {
-                      final empty = val.text.trim().isEmpty;
-                      return GestureDetector(
-                        onTap: empty ? null : _sendChat,
-                        child: Container(
-                          width: 38,
-                          height: 38,
-                          decoration: BoxDecoration(
-                            color: empty ? _white12 : _purple.withOpacity(0.85),
-                            borderRadius: BorderRadius.circular(10),
-                          ),
-                          alignment: Alignment.center,
-                          child: Text(
-                            '→',
-                            style: TextStyle(
-                              fontSize: 16,
-                              fontWeight: FontWeight.w700,
-                              color: empty ? _white38 : Colors.white,
-                            ),
-                          ),
-                        ),
-                      );
-                    },
-                  ),
-                ],
-              ),
-            ),
-          ],
         ],
       ),
     );
@@ -848,7 +1092,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   // ── ACTION BAR ─────────────────────────────────────────────────────────────
 
   Widget _buildActionBar() {
-    final canStart = _players.length >= 0;
+    final canStart = _players.length >= 3;
 
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
@@ -939,22 +1183,15 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   void dispose() {
     _chatCtrl.dispose();
     _chatScrollCtrl.dispose();
-    _kickTimer?.cancel();
     super.dispose();
   }
 }
 
 // ─── Reusable sub-widgets ─────────────────────────────────────────────────────
 
-class _PillItem {
-  final String value;
-  final String label;
-  const _PillItem(this.value, this.label);
-}
-
 /// Row of pill buttons.
 class _PillRow extends StatelessWidget {
-  final List<_PillItem> items;
+  final List<PillItem> items;
   final String selected;
   final bool enabled;
   final void Function(String) onTap;
@@ -1140,5 +1377,267 @@ class _PulseDotState extends State<_PulseDot>
   void dispose() {
     _ctrl.dispose();
     super.dispose();
+  }
+}
+
+class _KickBottomSheet extends StatelessWidget {
+  final PlayerInfo player;
+  final Color avatarColor;
+  final VoidCallback onKick;
+  final VoidCallback onCancel;
+
+  const _KickBottomSheet({
+    required this.player,
+    required this.avatarColor,
+    required this.onKick,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      decoration: const BoxDecoration(
+        color: Color(0xFF131929),
+        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          // Drag handle
+          Container(
+            margin: const EdgeInsets.only(top: 12),
+            width: 40,
+            height: 4,
+            decoration: BoxDecoration(
+              color: _white38,
+              borderRadius: BorderRadius.circular(2),
+            ),
+          ),
+
+          const SizedBox(height: 20),
+
+          // Player info row
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 24),
+            child: Row(
+              children: [
+                Container(
+                  width: 52,
+                  height: 52,
+                  decoration: BoxDecoration(
+                    color: avatarColor,
+                    shape: BoxShape.circle,
+                  ),
+                  alignment: Alignment.center,
+                  child: Text(
+                    player.name[0].toUpperCase(),
+                    style: GoogleFonts.barlow(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 14),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      player.name,
+                      style: GoogleFonts.barlow(
+                        fontSize: 18,
+                        fontWeight: FontWeight.w700,
+                        color: Colors.white,
+                      ),
+                    ),
+                    Text(
+                      'Active player',
+                      style: GoogleFonts.inter(fontSize: 12, color: _white38),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+
+          const SizedBox(height: 24),
+          Divider(color: _border, height: 1),
+          const SizedBox(height: 8),
+
+          // Kick option
+          ListTile(
+            onTap: onKick,
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.person_remove_rounded,
+                color: Colors.redAccent,
+                size: 20,
+              ),
+            ),
+            title: Text(
+              'Remove from room',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: Colors.redAccent,
+              ),
+            ),
+            subtitle: Text(
+              'They will be sent back to the home screen',
+              style: GoogleFonts.inter(fontSize: 12, color: _white38),
+            ),
+          ),
+
+          // Cancel option
+          ListTile(
+            onTap: onCancel,
+            leading: Container(
+              width: 40,
+              height: 40,
+              decoration: BoxDecoration(
+                color: _white12,
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: const Icon(Icons.close_rounded, color: _white70, size: 20),
+            ),
+            title: Text(
+              'Cancel',
+              style: GoogleFonts.inter(
+                fontSize: 14,
+                fontWeight: FontWeight.w600,
+                color: _white70,
+              ),
+            ),
+          ),
+
+          // Safe area bottom padding
+          SizedBox(height: MediaQuery.of(context).padding.bottom + 12),
+        ],
+      ),
+    );
+  }
+}
+
+class _KickDialog extends StatelessWidget {
+  final PlayerInfo player;
+  final Color avatarColor;
+  final VoidCallback onKick;
+  final VoidCallback onCancel;
+
+  const _KickDialog({
+    required this.player,
+    required this.avatarColor,
+    required this.onKick,
+    required this.onCancel,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    return Dialog(
+      backgroundColor: const Color(0xFF131929),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      child: Padding(
+        padding: const EdgeInsets.all(24),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // Icon
+            Container(
+              width: 56,
+              height: 56,
+              decoration: BoxDecoration(
+                color: Colors.red.withOpacity(0.12),
+                shape: BoxShape.circle,
+              ),
+              alignment: Alignment.center,
+              child: const Icon(
+                Icons.person_remove_rounded,
+                color: Colors.redAccent,
+                size: 28,
+              ),
+            ),
+            const SizedBox(height: 16),
+
+            Text(
+              'Remove ${player.name}?',
+              style: GoogleFonts.barlow(
+                fontSize: 18,
+                fontWeight: FontWeight.w700,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(height: 8),
+            Text(
+              'They will be sent back to the home screen and cannot rejoin.',
+              textAlign: TextAlign.center,
+              style: GoogleFonts.inter(
+                fontSize: 13,
+                color: _white70,
+                height: 1.5,
+              ),
+            ),
+            const SizedBox(height: 24),
+
+            Row(
+              children: [
+                Expanded(
+                  child: GestureDetector(
+                    onTap: onCancel,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      decoration: BoxDecoration(
+                        color: _white12,
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: _border),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Cancel',
+                        style: GoogleFonts.barlow(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: _white70,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: GestureDetector(
+                    onTap: onKick,
+                    child: Container(
+                      padding: const EdgeInsets.symmetric(vertical: 13),
+                      decoration: BoxDecoration(
+                        color: Colors.red.withOpacity(0.15),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(color: Colors.red.withOpacity(0.5)),
+                      ),
+                      alignment: Alignment.center,
+                      child: Text(
+                        'Remove',
+                        style: GoogleFonts.barlow(
+                          fontSize: 13,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.redAccent,
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
