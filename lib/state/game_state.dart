@@ -13,6 +13,9 @@ class GameState {
   final List<ChatMessage> chatMessages;
   final bool isEliminated;
   String error;
+  final bool isLoading;
+  String loadingMessage = '';
+  final String myName;
 
   GameState({
     required this.roomCode,
@@ -23,6 +26,9 @@ class GameState {
     required this.chatMessages,
     required this.isEliminated,
     required this.error,
+    required this.isLoading,
+    required this.loadingMessage,
+    required this.myName,
   });
 
   factory GameState.initial() => GameState(
@@ -37,6 +43,9 @@ class GameState {
     chatMessages: [],
     isEliminated: false,
     error: '',
+    isLoading: false,
+    loadingMessage: '',
+    myName: '',
   );
 
   GameState copyWith({
@@ -48,6 +57,9 @@ class GameState {
     List<ChatMessage>? chatMessages,
     bool? isEliminated,
     String? error,
+    bool? isLoading,
+    String? loadingMessage,
+    String? myName,
   }) {
     return GameState(
       roomCode: roomCode ?? this.roomCode,
@@ -58,6 +70,9 @@ class GameState {
       chatMessages: chatMessages ?? this.chatMessages,
       isEliminated: isEliminated ?? this.isEliminated,
       error: error ?? this.error,
+      isLoading: isLoading ?? this.isLoading,
+      loadingMessage: loadingMessage ?? this.loadingMessage,
+      myName: myName ?? this.myName,
     );
   }
 }
