@@ -1,4 +1,3 @@
-import 'package:flutter/cupertino.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -7,7 +6,10 @@ import 'package:word_imposter/state/game_controller.dart';
 
 import '../data/rule_data.dart';
 import '../models/rule.dart';
+import '../services/session_service.dart';
+import '../state/game_state.dart';
 import '../widgets/action_button.dart';
+import '../widgets/game_loader.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/icon_badge.dart';
 
@@ -36,7 +38,30 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   final _nameCtrl = TextEditingController();
   final _codeCtrl = TextEditingController();
 
-  bool _showRules = false;
+  bool _isLoading = false;
+  String _loadingMessage = '';
+
+  @override
+  void initState() {
+    super.initState();
+    // Clear error when user starts typing name
+    _nameCtrl.addListener(_clearErrorIfFixed);
+    // Clear error when user starts typing room code
+    _codeCtrl.addListener(_clearErrorIfFixed);
+
+    // myName is in state if user left a lobby this session, empty on fresh launch
+    final savedName = ref.read(gameProvider).myName;
+    if (savedName.isNotEmpty) {
+      _nameCtrl.text = savedName;
+    }
+  }
+
+  void _clearErrorIfFixed() {
+    final error = ref.read(gameProvider).error;
+    if (error.isNotEmpty) {
+      ref.read(gameProvider.notifier).clearError();
+    }
+  }
 
   @override
   void dispose() {
@@ -50,7 +75,52 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ── build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    final error = ref.watch(gameProvider.select((s) => s.error));
+    // Update your listener
+    ref.listen<GameState>(gameProvider, (previous, next) {
+      if (next.isLoading != previous?.isLoading ||
+          next.loadingMessage != previous?.loadingMessage) {
+        setState(() {
+          _isLoading = next.isLoading;
+          _loadingMessage =
+              next.loadingMessage; // e.g. 'Creating Room…' / 'Joining Room…'
+        });
+      }
+    });
+    ref.listen<String>(gameProvider.select((s) => s.error), (previous, next) {
+      if (next.isNotEmpty) {
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            behavior: SnackBarBehavior.floating,
+            backgroundColor: _errorBg.withOpacity(0.15),
+            shape: RoundedRectangleBorder(
+              borderRadius: BorderRadius.circular(10),
+              side: BorderSide(color: _errorBg.withOpacity(0.5)),
+            ),
+            content: Row(
+              children: [
+                const Icon(
+                  Icons.warning_amber_rounded,
+                  color: _errorBg,
+                  size: 18,
+                ),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    next,
+                    style: GoogleFonts.inter(color: _errorBg, fontSize: 13),
+                  ),
+                ),
+              ],
+            ),
+            duration: const Duration(seconds: 4),
+          ),
+        );
+      } else {
+        // Error was cleared (user fixed the field)
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+      }
+    });
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
@@ -91,9 +161,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     const SizedBox(height: 14),
                     _buildJoinCard(),
                     const SizedBox(height: 20),
-                    // TODO: Show it using listener using Snackbar or something
-                    if (error.isNotEmpty) _buildErrorBox(error),
-                    const SizedBox(height: 100), // room for FAB
                   ],
                 ),
               ),
@@ -102,9 +169,8 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             // ── ? FAB ──────────────────────────────────────────────────────
             Positioned(right: 20, bottom: 20, child: _buildHelpFab()),
 
-            // TODO: Add this is listener
-            // ── Rules modal ────────────────────────────────────────────────
-            if (_showRules) _buildRulesModal(),
+            // ── Overlay loader (always last so it's on top) ──
+            if (_isLoading) GameLoader(message: _loadingMessage),
           ],
         ),
       ),
@@ -242,7 +308,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
             ),
           ),
           const SizedBox(height: 12),
-          // Room code input — styled like the React version (pill shaped)
           Container(
             decoration: BoxDecoration(
               color: _inputBg,
@@ -296,34 +361,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  // ── ERROR BOX ──────────────────────────────────────────────────────────────
-  Widget _buildErrorBox(String error) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: _errorBg.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _errorBg.withOpacity(0.5)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.warning_amber_rounded, color: _errorBg, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              error,
-              style: GoogleFonts.inter(color: _errorBg, fontSize: 13),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
   // ── HELP FAB ───────────────────────────────────────────────────────────────
   Widget _buildHelpFab() {
     return GestureDetector(
-      onTap: () => setState(() => _showRules = true),
+      onTap: _showRulesDialog,
       child: Container(
         width: 48,
         height: 48,
@@ -345,127 +386,83 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     );
   }
 
-  // ── RULES MODAL ────────────────────────────────────────────────────────────
-  Widget _buildRulesModal() {
-    return GestureDetector(
-      onTap: () => setState(() => _showRules = false),
-      child: Container(
-        color: Colors.black.withOpacity(0.78),
-        child: SafeArea(
-          child: Center(
-            child: GestureDetector(
-              onTap: () {}, // prevent tap-through
-              child: Container(
-                margin: const EdgeInsets.symmetric(
-                  horizontal: 20,
-                  vertical: 24,
-                ),
-                decoration: BoxDecoration(
-                  color: const Color(0xFF121826),
-                  borderRadius: BorderRadius.circular(20),
-                  border: Border.all(color: _border),
-                ),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
+  void _showRulesDialog() {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black.withOpacity(0.78),
+      builder: (_) => Dialog(
+        backgroundColor: Colors.transparent,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 24),
+        child: Container(
+          decoration: BoxDecoration(
+            color: const Color(0xFF121826),
+            borderRadius: BorderRadius.circular(20),
+            border: Border.all(color: _border),
+          ),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // header
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 16, 12),
+                child: Row(
                   children: [
-                    // header
-                    Padding(
-                      padding: const EdgeInsets.fromLTRB(20, 18, 16, 12),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Text(
-                              'How to Play',
-                              style: GoogleFonts.barlow(
-                                fontSize: 19,
-                                fontWeight: FontWeight.w700,
-                                color: Colors.white,
-                              ),
-                            ),
-                          ),
-                          GestureDetector(
-                            onTap: () => setState(() => _showRules = false),
-                            child: Container(
-                              width: 32,
-                              height: 32,
-                              decoration: BoxDecoration(
-                                color: Colors.white.withOpacity(0.07),
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                              alignment: Alignment.center,
-                              child: const Icon(
-                                Icons.close,
-                                color: _white70,
-                                size: 18,
-                              ),
-                            ),
-                          ),
-                        ],
+                    Expanded(
+                      child: Text(
+                        'How to Play',
+                        style: GoogleFonts.barlow(
+                          fontSize: 19,
+                          fontWeight: FontWeight.w700,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
-                    Divider(color: _border, height: 1),
-
-                    // scrollable body
-                    ConstrainedBox(
-                      constraints: BoxConstraints(
-                        maxHeight: MediaQuery.of(context).size.height * 0.6,
-                      ),
-                      child: SingleChildScrollView(
-                        padding: const EdgeInsets.all(20),
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            _RuleSection(
-                              label: 'Game Rules',
-                              rules: kRules.sublist(0, 5),
-                            ),
-                            const SizedBox(height: 20),
-                            _RuleSection(
-                              label: 'Game Modes',
-                              rules: kRules.sublist(5),
-                            ),
-                            const SizedBox(height: 16),
-                            Container(
-                              padding: const EdgeInsets.all(12),
-                              decoration: BoxDecoration(
-                                color: _purple.withOpacity(0.12),
-                                borderRadius: BorderRadius.circular(10),
-                                border: Border.all(
-                                  color: _purple.withOpacity(0.3),
-                                ),
-                              ),
-                              child: RichText(
-                                text: TextSpan(
-                                  style: GoogleFonts.inter(
-                                    fontSize: 12.5,
-                                    color: _white70,
-                                    height: 1.5,
-                                  ),
-                                  children: const [
-                                    TextSpan(text: '💡 '),
-                                    TextSpan(
-                                      text: 'Pro tip: ',
-                                      style: TextStyle(
-                                        fontWeight: FontWeight.w600,
-                                        color: Colors.white,
-                                      ),
-                                    ),
-                                    TextSpan(
-                                      text:
-                                          'Even innocents should hesitate slightly — acting too confident makes you look suspicious!',
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
+                    GestureDetector(
+                      onTap: () =>
+                          Navigator.of(context).pop(), // ✅ clean dismiss
+                      child: Container(
+                        width: 32,
+                        height: 32,
+                        decoration: BoxDecoration(
+                          color: Colors.white.withOpacity(0.07),
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        alignment: Alignment.center,
+                        child: const Icon(
+                          Icons.close,
+                          color: _white70,
+                          size: 18,
                         ),
                       ),
                     ),
                   ],
                 ),
               ),
-            ),
+              Divider(color: _border, height: 1),
+              // scrollable body — same as before, just moved inside Dialog
+              ConstrainedBox(
+                constraints: BoxConstraints(
+                  maxHeight: MediaQuery.of(context).size.height * 0.6,
+                ),
+                child: SingleChildScrollView(
+                  padding: const EdgeInsets.all(20),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      _RuleSection(
+                        label: 'Game Rules',
+                        rules: kRules.sublist(0, 5),
+                      ),
+                      const SizedBox(height: 20),
+                      _RuleSection(
+                        label: 'Game Modes',
+                        rules: kRules.sublist(5),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ],
           ),
         ),
       ),

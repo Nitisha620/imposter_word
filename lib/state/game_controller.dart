@@ -29,6 +29,7 @@ class GameController extends StateNotifier<GameState> {
       myId: session.myId,
       isHost: session.isHost,
       roomCode: session.roomCode,
+      myName: session.myName,
     );
     _connectSocket(session.roomCode, session.myId, session.isHost);
   }
@@ -104,14 +105,17 @@ class GameController extends StateNotifier<GameState> {
   }
 
   // ── createRoom ────────────────────────────────────────────────────────────
-  // Mirrors handleCreate in App.jsx
   Future<void> createRoom(String name, String? mode) async {
     if (name.trim().isEmpty) {
       state = state.copyWith(error: 'Enter your name first!');
       return;
     }
 
-    state = state.copyWith(error: '');
+    state = state.copyWith(
+      isLoading: true,
+      loadingMessage: 'Creating Room…',
+      error: '',
+    );
 
     final result = await createRoomPartyServiceKit(
       name.trim(),
@@ -130,6 +134,8 @@ class GameController extends StateNotifier<GameState> {
       roomCode: result.room['code'] as String,
       myId: result.myId,
       isHost: true,
+      isLoading: false,
+      myName: name.trim(),
       // phase stays home until onSync fires with lobby
     );
 
@@ -137,7 +143,6 @@ class GameController extends StateNotifier<GameState> {
   }
 
   // ── joinRoom ──────────────────────────────────────────────────────────────
-  // Mirrors handleJoin in App.jsx
   Future<void> joinRoom(String code, String name) async {
     if (name.trim().isEmpty) {
       state = state.copyWith(error: 'Enter your name first!');
@@ -148,7 +153,11 @@ class GameController extends StateNotifier<GameState> {
       return;
     }
 
-    state = state.copyWith(error: '');
+    state = state.copyWith(
+      isLoading: true,
+      loadingMessage: 'Joining Room…',
+      error: '',
+    );
 
     final savedId = await SessionService.getSavedId();
     final savedRoom = await SessionService.getSavedRoom();
@@ -162,7 +171,7 @@ class GameController extends StateNotifier<GameState> {
     );
 
     if (result.error != null) {
-      state = state.copyWith(error: result.error!);
+      state = state.copyWith(error: result.error!, isLoading: false);
       return;
     }
 
@@ -177,6 +186,8 @@ class GameController extends StateNotifier<GameState> {
       roomCode: code.trim().toUpperCase(),
       myId: result.myId!,
       isHost: false,
+      isLoading: false,
+      myName: name.trim(),
     );
 
     _connectSocket(code.trim().toUpperCase(), result.myId!, false);
@@ -194,11 +205,12 @@ class GameController extends StateNotifier<GameState> {
   // ── leave ─────────────────────────────────────────────────────────────────
   // Mirrors handleLeave in App.jsx
   Future<void> leave() async {
+    final myName = state.myName;
     _socket?.leave(state.myId, state.isHost);
     await SessionService.clear();
     await Future.delayed(const Duration(milliseconds: 200));
     _socket?.dispose();
-    state = GameState.initial();
+    state = GameState.initial().copyWith(myName: myName);
   }
 
   // ── sendChat ──────────────────────────────────────────────────────────────
@@ -343,7 +355,7 @@ class GameController extends StateNotifier<GameState> {
     'eliminationAnnouncement': null,
     'discussionEnd': null, // ← add this — prevents stale timer on re-entry
   });
-  
+
   // In GameController — fix goToDiscussion():
   void goToDiscussion() {
     // Mirrors handleStartDiscussion in App.jsx:
@@ -507,5 +519,9 @@ class GameController extends StateNotifier<GameState> {
   void dispose() {
     _socket?.dispose();
     super.dispose();
+  }
+
+  void clearError() {
+    state = state.copyWith(error: '');
   }
 }
