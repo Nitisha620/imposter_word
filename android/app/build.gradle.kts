@@ -16,7 +16,7 @@ val keystoreProperties = Properties().apply {
 }
 
 android {
-    namespace = "com.alpacaccino.word_imposter"
+    namespace = "com.alpacaccino.imposter"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
