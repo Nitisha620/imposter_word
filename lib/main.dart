@@ -8,7 +8,7 @@ import 'services/session_service.dart';
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await dotenv.load();
-  SessionService.clear();
+  await SessionService.clear();
   runApp(const ProviderScope(child: MyApp()));
 }
 
