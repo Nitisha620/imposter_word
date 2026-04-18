@@ -5,8 +5,8 @@ class AppColors {
 
   // ── Backgrounds ──────────────────────────────────────────────
   static const bg           = Color(0xFF0B0F1A);
-  static const surface      = Color(0xFF13111F);
-  static const surfaceAlt   = Color(0xFF1A1730);
+  static const surface      = Color(0xFF1A1730);
+  static const surfaceAlt   = Color(0xFF1E1B2E);
   static const card         = Color(0xFF111827);
   static const inputBg      = Color(0xFF0E1422);
 
