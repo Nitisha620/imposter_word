@@ -205,6 +205,7 @@ class GameController extends StateNotifier<GameState> {
   // ── leave ─────────────────────────────────────────────────────────────────
   // Mirrors handleLeave in App.jsx
   Future<void> leave() async {
+    state.roomState.originalPlayers?.remove(state.myId);
     final myName = state.myName;
     _socket?.leave(state.myId, state.isHost);
     await SessionService.clear();
