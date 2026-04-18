@@ -628,7 +628,7 @@ class _PlayerCard extends StatelessWidget {
         width: 1.2,
       ),
     ),
-    padding: const EdgeInsets.fromLTRB(8, 16, 8, 0),
+    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
     child: Center(
       child: Stack(
         clipBehavior: Clip.none,
@@ -655,7 +655,7 @@ class _PlayerCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              const SizedBox(height: 6),
               // Name
               Text(
                 isMe ? '${player.name} (You)' : player.name,
@@ -668,7 +668,7 @@ class _PlayerCard extends StatelessWidget {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 6),
+              const SizedBox(height: 4),
               // Status chip
               Row(
                 mainAxisSize: MainAxisSize.min,
@@ -698,13 +698,13 @@ class _PlayerCard extends StatelessWidget {
           // HOST badge
           if (isHost)
             Positioned(
-              top: -6,
+              top: -18,
               left: 0,
               right: 0,
               child: Center(
                 child: Container(
                   padding: const EdgeInsets.symmetric(
-                    horizontal: 6,
+                    horizontal: 8,
                     vertical: 2,
                   ),
                   decoration: BoxDecoration(
