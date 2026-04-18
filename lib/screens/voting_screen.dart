@@ -2,40 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:word_imposter/state/room_state.dart';
 
+import '../models/elimination_mode.dart';
 import '../state/player_info.dart';
-
-// ─── Colours ─────────────────────────────────────────────────────────────────
-const _bg = Color(0xFF0B0F1A);
-const _card = Color(0xFF131929);
-const _border = Color(0xFF1E2740);
-const _purple = Color(0xFF7C6EF5);
-const _purpleDim = Color(0xFF4B44A0);
-const _white70 = Color(0xB3FFFFFF);
-const _white38 = Color(0x61FFFFFF);
-const _white12 = Color(0x1FFFFFFF);
-const _green = Color(0xFF34D399);
-const _accentSoft = Color(0xFF6D5FFD);
-
-const _avatarColors = [
-  Color(0xFF6D62F5),
-  Color(0xFFF87171),
-  Color(0xFF34D399),
-  Color(0xFFFBBF24),
-  Color(0xFF38BDF8),
-  Color(0xFFF472B6),
-  Color(0xFFA3E635),
-  Color(0xFFFB923C),
-];
-
-// ─── Elimination announcement model ─────────────────────────────────────────
-class EliminationAnnouncement {
-  final String name;
-  final bool imposterCaught;
-  const EliminationAnnouncement({
-    required this.name,
-    required this.imposterCaught,
-  });
-}
+import '../theme/app_colors.dart';
+import '../widgets/pulse_dot.dart';
 
 // ─── VotingScreen ─────────────────────────────────────────────────────────────
 class VotingScreen extends StatelessWidget {
@@ -62,30 +32,23 @@ class VotingScreen extends StatelessWidget {
   // ── derived helpers ────────────────────────────────────────────────────────
 
   List<String> get _eliminatedIds =>
-      // Mirrors: (roomState?.eliminatedSoFar || []).map(e => typeof e === "object" ? e.id : e)
       roomState.eliminatedSoFar.map((e) => e['id']?.toString() ?? '').toList();
 
   List<PlayerInfo> get _allPlayers =>
-      // Mirrors: Object.values(roomState?.players || {}).sort((a,b) => a.joinedAt - b.joinedAt)
       roomState.players.values.toList()
         ..sort((a, b) => a.joinedAt.compareTo(b.joinedAt));
 
   List<PlayerInfo> get _players =>
-      // Mirrors: allPlayers.filter(p => !eliminatedIds.includes(p.id))
       _allPlayers.where((p) => !_eliminatedIds.contains(p.id)).toList();
 
-  Map<String, String> get _votes =>
-      // Mirrors: roomState?.votes || {}
-      roomState.votes ?? {};
+  Map<String, String> get _votes => roomState.votes ?? {};
 
   String? get _myVote => _votes[myId];
 
   int get _totalVoted =>
-      // Mirrors: Object.keys(votes).filter(id => !eliminatedIds.includes(id)).length
       _votes.keys.where((id) => !_eliminatedIds.contains(id)).length;
 
   Map<String, int> get _tally {
-    // Mirrors: Object.values(votes).forEach(vid => { tally[vid] = (tally[vid]||0)+1 })
     final t = <String, int>{};
     for (final vid in _votes.values) {
       t[vid] = (t[vid] ?? 0) + 1;
@@ -94,7 +57,6 @@ class VotingScreen extends StatelessWidget {
   }
 
   EliminationAnnouncement? get _announcement {
-    // Mirrors: roomState?.eliminationAnnouncement || null
     final a = roomState.eliminationAnnouncement;
     if (a == null) return null;
     return EliminationAnnouncement(
@@ -122,7 +84,7 @@ class VotingScreen extends StatelessWidget {
     final progress = total > 0 ? totalVoted / total : 0.0;
 
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: AppColors.bg,
       body: SafeArea(
         child: Column(
           children: [
@@ -136,7 +98,7 @@ class VotingScreen extends StatelessWidget {
                     style: GoogleFonts.barlow(
                       fontSize: 52,
                       fontWeight: FontWeight.w900,
-                      color: _purple,
+                      color: AppColors.purple,
                       letterSpacing: 4,
                     ),
                   ),
@@ -144,7 +106,10 @@ class VotingScreen extends StatelessWidget {
                   Text(
                     statusText,
                     textAlign: TextAlign.center,
-                    style: GoogleFonts.inter(fontSize: 13.5, color: _white70),
+                    style: GoogleFonts.inter(
+                      fontSize: 13.5,
+                      color: AppColors.white70,
+                    ),
                   ),
                   const SizedBox(height: 14),
                   // Progress bar
@@ -156,9 +121,9 @@ class VotingScreen extends StatelessWidget {
                           child: LinearProgressIndicator(
                             value: progress,
                             minHeight: 5,
-                            backgroundColor: _white12,
+                            backgroundColor: AppColors.white12,
                             valueColor: const AlwaysStoppedAnimation<Color>(
-                              _purple,
+                              AppColors.purple,
                             ),
                           ),
                         ),
@@ -169,7 +134,7 @@ class VotingScreen extends StatelessWidget {
                         style: GoogleFonts.barlow(
                           fontSize: 12,
                           fontWeight: FontWeight.w700,
-                          color: _white38,
+                          color: AppColors.white38,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -189,7 +154,7 @@ class VotingScreen extends StatelessWidget {
                   decoration: BoxDecoration(
                     color: Colors.white.withOpacity(0.03),
                     borderRadius: BorderRadius.circular(24),
-                    border: Border.all(color: _border),
+                    border: Border.all(color: AppColors.border),
                   ),
                   padding: const EdgeInsets.all(14),
                   child: GridView.builder(
@@ -213,8 +178,8 @@ class VotingScreen extends StatelessWidget {
                           !isEliminated && !isSelf && announcement == null;
                       final count = tally[p.id] ?? 0;
                       final color =
-                          _avatarColors[(allIdx >= 0 ? allIdx : i) %
-                              _avatarColors.length];
+                          AppColors.avatarColors[(allIdx >= 0 ? allIdx : i) %
+                              AppColors.avatarColors.length];
 
                       return _VoteCard(
                         name: p.name,
@@ -260,9 +225,9 @@ class VotingScreen extends StatelessWidget {
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
           decoration: BoxDecoration(
-            color: _card,
+            color: AppColors.card,
             borderRadius: BorderRadius.circular(16),
-            border: Border.all(color: _border),
+            border: Border.all(color: AppColors.border),
           ),
           child: Row(
             children: [
@@ -285,7 +250,10 @@ class VotingScreen extends StatelessWidget {
                       a.imposterCaught
                           ? '😈 They were an imposter!'
                           : '😇 They were innocent…',
-                      style: GoogleFonts.inter(fontSize: 13, color: _white70),
+                      style: GoogleFonts.inter(
+                        fontSize: 13,
+                        color: AppColors.white70,
+                      ),
                     ),
                   ],
                 ),
@@ -301,10 +269,6 @@ class VotingScreen extends StatelessWidget {
     );
   }
 
-  /* Widget _buildRevealBtn(bool enabled) => */
-  /*     _buildActionBtn('REVEAL RESULTS →', true ? onFinalize : null); */
-
-  // NEW — mirrors React's disabled={totalVoted === 0}:
   Widget _buildRevealBtn(bool enabled) =>
       _buildActionBtn('REVEAL RESULTS →', enabled ? onFinalize : null);
 
@@ -318,13 +282,22 @@ class VotingScreen extends StatelessWidget {
           duration: const Duration(milliseconds: 200),
           padding: const EdgeInsets.symmetric(vertical: 17),
           decoration: BoxDecoration(
-            color: active ? _purpleDim : _purpleDim.withOpacity(0.3),
+            color: active
+                ? AppColors.purpleDim
+                : AppColors.purpleDim.withOpacity(0.3),
             borderRadius: BorderRadius.circular(14),
             border: Border.all(
-              color: active ? _purple.withOpacity(0.7) : _border,
+              color: active
+                  ? AppColors.purple.withOpacity(0.7)
+                  : AppColors.border,
             ),
             boxShadow: active
-                ? [BoxShadow(color: _purple.withOpacity(0.3), blurRadius: 20)]
+                ? [
+                    BoxShadow(
+                      color: AppColors.purple.withOpacity(0.3),
+                      blurRadius: 20,
+                    ),
+                  ]
                 : [],
           ),
           alignment: Alignment.center,
@@ -333,7 +306,7 @@ class VotingScreen extends StatelessWidget {
             style: GoogleFonts.barlow(
               fontSize: 14,
               fontWeight: FontWeight.w800,
-              color: active ? Colors.white : _white38,
+              color: active ? Colors.white : AppColors.white38,
               letterSpacing: 1.5,
             ),
           ),
@@ -347,16 +320,19 @@ class VotingScreen extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.symmetric(vertical: 14),
       decoration: BoxDecoration(
-        color: _white12,
+        color: AppColors.white12,
         borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: _border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Row(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          _PulseDot(),
+          PulseDot(),
           const SizedBox(width: 10),
-          Text(text, style: GoogleFonts.inter(fontSize: 13, color: _white70)),
+          Text(
+            text,
+            style: GoogleFonts.inter(fontSize: 13, color: AppColors.white70),
+          ),
         ],
       ),
     );
@@ -395,19 +371,24 @@ class _VoteCard extends StatelessWidget {
           color: isSelf
               ? const Color(0xFF1A1F35)
               : isVotedFor
-              ? _purple.withOpacity(0.15)
+              ? AppColors.purple.withOpacity(0.15)
               : const Color(0xFF131929),
           borderRadius: BorderRadius.circular(18),
           border: Border.all(
             color: isVotedFor
-                ? _purple
+                ? AppColors.purple
                 : isSelf
-                ? _purple.withOpacity(0.3)
+                ? AppColors.purple.withOpacity(0.3)
                 : const Color(0xFF1E2740),
             width: isVotedFor ? 1.5 : 1,
           ),
           boxShadow: isVotedFor
-              ? [BoxShadow(color: _purple.withOpacity(0.25), blurRadius: 14)]
+              ? [
+                  BoxShadow(
+                    color: AppColors.purple.withOpacity(0.25),
+                    blurRadius: 14,
+                  ),
+                ]
               : [],
         ),
         child: Stack(
@@ -423,10 +404,10 @@ class _VoteCard extends StatelessWidget {
                 decoration: BoxDecoration(
                   shape: BoxShape.circle,
                   color: hasVoted
-                      ? _green.withOpacity(0.25)
+                      ? AppColors.green.withOpacity(0.25)
                       : Colors.white.withOpacity(0.06),
                   border: Border.all(
-                    color: hasVoted ? _green : const Color(0xFF1E2740),
+                    color: hasVoted ? AppColors.green : const Color(0xFF1E2740),
                   ),
                 ),
 
@@ -437,7 +418,7 @@ class _VoteCard extends StatelessWidget {
                         style: TextStyle(
                           fontSize: 11,
                           fontWeight: FontWeight.w700,
-                          color: _green,
+                          color: AppColors.green,
                         ),
                       )
                     : null,
@@ -489,7 +470,9 @@ class _VoteCard extends StatelessWidget {
                         style: GoogleFonts.barlow(
                           fontSize: 18,
                           fontWeight: FontWeight.w700,
-                          color: voteCount > 0 ? Colors.white : _white38,
+                          color: voteCount > 0
+                              ? Colors.white
+                              : AppColors.white38,
                           letterSpacing: 0.5,
                         ),
                       ),
@@ -507,7 +490,7 @@ class _VoteCard extends StatelessWidget {
                           vertical: 2,
                         ),
                         decoration: BoxDecoration(
-                          color: _accentSoft,
+                          color: AppColors.accentSoft,
                           borderRadius: BorderRadius.circular(99),
                         ),
                         child: Center(
@@ -530,40 +513,5 @@ class _VoteCard extends StatelessWidget {
         ),
       ),
     );
-  }
-}
-
-// ─── Pulsing dot ──────────────────────────────────────────────────────────────
-class _PulseDot extends StatefulWidget {
-  @override
-  State<_PulseDot> createState() => _PulseDotState();
-}
-
-class _PulseDotState extends State<_PulseDot>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl = AnimationController(
-    vsync: this,
-    duration: const Duration(milliseconds: 900),
-  )..repeat(reverse: true);
-
-  late final Animation<double> _anim = Tween<double>(
-    begin: 0.3,
-    end: 1.0,
-  ).animate(_ctrl);
-
-  @override
-  Widget build(BuildContext context) => FadeTransition(
-    opacity: _anim,
-    child: Container(
-      width: 8,
-      height: 8,
-      decoration: const BoxDecoration(color: _purple, shape: BoxShape.circle),
-    ),
-  );
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
   }
 }
