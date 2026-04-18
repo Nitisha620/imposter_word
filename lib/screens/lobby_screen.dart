@@ -573,7 +573,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                         ),
                       ),
                       const SizedBox(height: 3),
-                      ChatBubble(text: msg.text, isMe: true, color: color),
+                      ChatBubble(msg: msg, isMe: true, avatarColor: color),
                     ],
                   ),
                 )
@@ -589,7 +589,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    ChatBubble(text: msg.text, isMe: false, color: color),
+                    ChatBubble(msg: msg, isMe: false, avatarColor: color),
                   ],
                 ),
         );
