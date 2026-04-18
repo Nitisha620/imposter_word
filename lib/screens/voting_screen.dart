@@ -14,6 +14,7 @@ const _white70 = Color(0xB3FFFFFF);
 const _white38 = Color(0x61FFFFFF);
 const _white12 = Color(0x1FFFFFFF);
 const _green = Color(0xFF34D399);
+const _accentSoft = Color(0xFF6D5FFD);
 
 const _avatarColors = [
   Color(0xFF6D62F5),
@@ -207,7 +208,7 @@ class VotingScreen extends StatelessWidget {
                       );
                       final isSelf = p.id == myId;
                       final isVotedFor = myVote == p.id;
-                      final hasVoted = _votes.containsValue(p.id);
+                      final hasVoted = _votes.containsKey(p.id);
                       final canVote =
                           !isEliminated && !isSelf && announcement == null;
                       final count = tally[p.id] ?? 0;
@@ -239,7 +240,7 @@ class VotingScreen extends StatelessWidget {
               child: announcement != null
                   ? _buildAnnouncement(announcement)
                   : isHost
-                  ? _buildRevealBtn(totalVoted > 0)
+                  ? _buildRevealBtn(totalVoted == players.length)
                   : _buildWaitingPill(
                       isEliminated
                           ? 'Waiting for results…'
@@ -428,6 +429,7 @@ class _VoteCard extends StatelessWidget {
                     color: hasVoted ? _green : const Color(0xFF1E2740),
                   ),
                 ),
+
                 alignment: Alignment.center,
                 child: hasVoted
                     ? const Text(
@@ -444,76 +446,83 @@ class _VoteCard extends StatelessWidget {
 
             // ── main content ───────────────────────────────────────────────
             Center(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.center,
-                mainAxisAlignment: MainAxisAlignment.center,
+              child: Stack(
+                clipBehavior: Clip.none,
                 children: [
-                  // Avatar
-                  Container(
-                    width: 58,
-                    height: 58,
-                    decoration: BoxDecoration(
-                      color: avatarColor,
-                      shape: BoxShape.circle,
-                    ),
-                    alignment: Alignment.center,
-                    child: Text(
-                      name[0].toUpperCase(),
-                      style: GoogleFonts.barlow(
-                        fontSize: 26,
-                        fontWeight: FontWeight.w800,
-                        color: Colors.white,
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.center,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      // Avatar
+                      Container(
+                        width: 58,
+                        height: 58,
+                        decoration: BoxDecoration(
+                          color: avatarColor,
+                          shape: BoxShape.circle,
+                        ),
+                        alignment: Alignment.center,
+                        child: Text(
+                          name[0].toUpperCase(),
+                          style: GoogleFonts.barlow(
+                            fontSize: 26,
+                            fontWeight: FontWeight.w800,
+                            color: Colors.white,
+                          ),
+                        ),
                       ),
-                    ),
-                  ),
-                  const SizedBox(height: 10),
-                  // Name
-                  Text(
-                    name,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.inter(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w600,
-                      color: Colors.white,
-                    ),
-                  ),
-                  // YOU badge
-                  if (isSelf) ...[
-                    const SizedBox(height: 6),
-                    Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 2,
+                      const SizedBox(height: 10),
+                      // Name
+                      Text(
+                        name,
+                        overflow: TextOverflow.ellipsis,
+                        style: GoogleFonts.inter(
+                          fontSize: 15,
+                          fontWeight: FontWeight.w600,
+                          color: Colors.white,
+                        ),
                       ),
-                      decoration: BoxDecoration(
-                        color: _purple.withOpacity(0.25),
-                        borderRadius: BorderRadius.circular(6),
-                        border: Border.all(color: _purple.withOpacity(0.4)),
-                      ),
-                      child: Text(
-                        'YOU',
+
+                      // Vote count
+                      Text(
+                        '$voteCount ${voteCount == 1 ? 'vote' : 'votes'}',
                         style: GoogleFonts.barlow(
-                          fontSize: 12,
-                          fontWeight: FontWeight.w800,
-                          color: _purple,
-                          letterSpacing: 1,
+                          fontSize: 18,
+                          fontWeight: FontWeight.w700,
+                          color: voteCount > 0 ? Colors.white : _white38,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ],
+                  ),
+                  if (isSelf)
+                    Positioned(
+                      top: -10,
+                      right: 0,
+                      left: 0,
+                      child: // YOU badge
+                      Container(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 8,
+                          vertical: 2,
+                        ),
+                        decoration: BoxDecoration(
+                          color: _accentSoft,
+                          borderRadius: BorderRadius.circular(99),
+                        ),
+                        child: Center(
+                          child: Text(
+                            'YOU',
+                            style: GoogleFonts.barlow(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w800,
+                              color: Colors.white,
+                              letterSpacing: 1,
+                            ),
+                          ),
                         ),
                       ),
                     ),
-                  ],
-
-                  const SizedBox(height: 6),
-
-                  // Vote count
-                  Text(
-                    '$voteCount ${voteCount == 1 ? 'vote' : 'votes'}',
-                    style: GoogleFonts.barlow(
-                      fontSize: 18,
-                      fontWeight: FontWeight.w700,
-                      color: voteCount > 0 ? Colors.white : _white38,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
                 ],
               ),
             ),
