@@ -1,39 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../state/player_info.dart';
 import '../state/room_state.dart';
+import '../theme/app_colors.dart';
+import '../widgets/player_card.dart';
+import '../widgets/primary_button.dart';
+import '../widgets/pulse_dot.dart';
+import '../widgets/role_badge.dart';
 
-// ── Palette ────────────────────────────────────────────────────────────────
-const _bg = Color(0xFF0F0D1A);
-const _surface = Color(0xFF1A1730);
-const _surfaceAlt = Color(0xFF1E1B2E);
-const _border = Color(0xFF2E2A45);
-const _accent = Color(0xFF9B8FFF);
-const _accentSoft = Color(0xFF6D5FFD);
-const _text = Color(0xFFE8E4FF);
-const _textMuted = Color(0xFF8B86A8);
-const _green = Color(0xFF34D399);
-const _amber = Color(0xFFFBBF24);
-const _red = Color(0xFFF87171);
-const _pink = Color(0xFFE879F9);
-
-const _avatarColors = [
-  Color(0xFF6D62F5),
-  Color(0xFFF87171),
-  Color(0xFF34D399),
-  Color(0xFFFBBF24),
-  Color(0xFF38BDF8),
-  Color(0xFFF472B6),
-  Color(0xFFA3E635),
-  Color(0xFFFB923C),
-  Color(0xFFE879F9),
-  Color(0xFF2DD4BF),
-];
-
-// ── Fake data models (replace with your actual state) ─────────────────────
-
-// ── Screen ─────────────────────────────────────────────────────────────────
+// ── Reveal Screen ─────────────────────────────────────────────────────────────────
 class RevealScreen extends ConsumerStatefulWidget {
   final RoomState roomState;
   final String myId;
@@ -99,7 +74,6 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
   void didUpdateWidget(RevealScreen old) {
     super.didUpdateWidget(old);
 
-    // Mirrors React's useState(false) resetting on remount —
     // when assignments change (new word/new round), reset local reveal state
     final oldAssignments = old.roomState.assignments;
     final newAssignments = widget.roomState.assignments;
@@ -150,10 +124,9 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
   String get _gameMode => widget.roomState.gameMode;
 
   bool get _iMeReady => widget.roomState.revealReady?[widget.myId] ?? false;
-  // Fix — mirrors: Object.keys(revealReady).length
+
   int get _readyCount => widget.roomState.revealReady?.length ?? 0;
-  /* int get _readyCount =>
-      widget.roomState.revealReady?.values.where((v) => v).length ?? 0; */
+
   int get _totalPlayers => widget.roomState.assignments?.length ?? 0;
   bool get _allReady => _readyCount >= _totalPlayers;
 
@@ -181,11 +154,6 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
 
   @override
   Widget build(BuildContext context) {
-    // Side effect: when all ready and host, trigger onDone
-    /* if (_allReady && widget.isHost) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => widget.onDone());
-    } */
-
     if (_allReady && widget.isHost && !_doneFired) {
       _doneFired = true;
       WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -194,7 +162,7 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
     }
 
     return Scaffold(
-      backgroundColor: _bg,
+      backgroundColor: AppColors.bg,
       body: SafeArea(
         child: SingleChildScrollView(
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 28),
@@ -217,8 +185,9 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
   Widget _buildTitle() => Column(
     children: [
       ShaderMask(
-        shaderCallback: (b) =>
-            const LinearGradient(colors: [_accent, _pink]).createShader(b),
+        shaderCallback: (b) => const LinearGradient(
+          colors: [AppColors.accent, AppColors.pink],
+        ).createShader(b),
         child: const Text(
           'Your Word',
           textAlign: TextAlign.center,
@@ -234,7 +203,11 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
       const Text(
         'Prepare yourself. Once revealed, the game begins. Keep it secret.',
         textAlign: TextAlign.center,
-        style: TextStyle(color: _textMuted, fontSize: 13.5, height: 1.5),
+        style: TextStyle(
+          color: AppColors.textMuted,
+          fontSize: 13.5,
+          height: 1.5,
+        ),
       ),
     ],
   );
@@ -243,9 +216,9 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
   Widget _buildLockedCard() => Container(
     padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 32),
     decoration: BoxDecoration(
-      color: _surface,
+      color: AppColors.surface,
       borderRadius: BorderRadius.circular(20),
-      border: Border.all(color: _border),
+      border: Border.all(color: AppColors.border),
     ),
     child: Column(
       children: [
@@ -256,8 +229,8 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
             height: 72,
             decoration: BoxDecoration(
               shape: BoxShape.circle,
-              color: _surfaceAlt,
-              border: Border.all(color: _border, width: 1.5),
+              color: AppColors.surfaceAlt,
+              border: Border.all(color: AppColors.border, width: 1.5),
             ),
             child: const Center(
               child: Text('🔒', style: TextStyle(fontSize: 32)),
@@ -268,7 +241,7 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
         const Text(
           'Tap to reveal',
           style: TextStyle(
-            color: _text,
+            color: AppColors.textPrimary,
             fontSize: 20,
             fontWeight: FontWeight.w700,
           ),
@@ -276,10 +249,10 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
         const SizedBox(height: 6),
         const Text(
           'Hidden until you are ready',
-          style: TextStyle(color: _textMuted, fontSize: 13),
+          style: TextStyle(color: AppColors.textMuted, fontSize: 13),
         ),
         const SizedBox(height: 24),
-        _PrimaryButton(label: 'REVEAL MY WORD', onTap: _reveal),
+        PrimaryButton(label: 'REVEAL MY WORD', onTap: _reveal),
       ],
     ),
   );
@@ -295,18 +268,18 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
         child: Container(
           padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 28),
           decoration: BoxDecoration(
-            color: _surface,
+            color: AppColors.surface,
             borderRadius: BorderRadius.circular(20),
             border: Border.all(
               color: _isImposterCard
-                  ? _red.withOpacity(0.4)
-                  : _accent.withOpacity(0.3),
+                  ? AppColors.red.withOpacity(0.4)
+                  : AppColors.accent.withOpacity(0.3),
               width: 1.5,
             ),
             boxShadow: [
               BoxShadow(
-                color: (_isImposterCard ? _red : _accent).withOpacity(0.08),
-                blurRadius: 24,
+                color: (_isImposterCard ? AppColors.red : AppColors.accent)
+                    .withOpacity(0.08),
                 spreadRadius: 2,
               ),
             ],
@@ -315,22 +288,22 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
             children: [
               // Role badge
               if (isBlindImposter)
-                _RoleBadge(label: '😈 IMPOSTER', isImposter: true)
+                RoleBadge(label: '😈 IMPOSTER', isImposter: true)
               else
-                _RoleBadge(label: _roleLabel, isImposter: _isImposterCard),
+                RoleBadge(label: _roleLabel, isImposter: _isImposterCard),
               const SizedBox(height: 20),
 
               // Word display
               if (isBlindImposter) ...[
                 const Text(
                   '—',
-                  style: TextStyle(fontSize: 44, color: _textMuted),
+                  style: TextStyle(fontSize: 44, color: AppColors.textMuted),
                 ),
                 const SizedBox(height: 12),
                 const Text(
                   'No word for you. Listen carefully and bluff!',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: _textMuted, fontSize: 13.5),
+                  style: TextStyle(color: AppColors.textMuted, fontSize: 13.5),
                 ),
               ] else ...[
                 Text(
@@ -340,7 +313,7 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
                     fontSize: 36,
                     fontWeight: FontWeight.w900,
                     letterSpacing: 0.3,
-                    color: _text,
+                    color: AppColors.textPrimary,
                   ),
                 ),
                 if (_hintText.isNotEmpty) ...[
@@ -348,7 +321,10 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
                   Text(
                     _hintText,
                     textAlign: TextAlign.center,
-                    style: const TextStyle(color: _textMuted, fontSize: 13),
+                    style: const TextStyle(
+                      color: AppColors.textMuted,
+                      fontSize: 13,
+                    ),
                   ),
                 ],
               ],
@@ -357,7 +333,7 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
 
               // Ready / waiting
               if (!_iMeReady)
-                _PrimaryButton(
+                PrimaryButton(
                   label: "I'VE READ MY WORD — READY ✓",
                   onTap: widget.onMarkReady,
                 )
@@ -379,7 +355,7 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
                   icon: const Text('🔁', style: TextStyle(fontSize: 14)),
                   label: const Text(
                     'Change Word',
-                    style: TextStyle(color: _textMuted, fontSize: 13),
+                    style: TextStyle(color: AppColors.textMuted, fontSize: 13),
                   ),
                 ),
               ],
@@ -397,7 +373,7 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
       Text(
         '$_readyCount/$_totalPlayers players ready',
         textAlign: TextAlign.center,
-        style: const TextStyle(color: _textMuted, fontSize: 13),
+        style: const TextStyle(color: AppColors.textMuted, fontSize: 13),
       ),
       const SizedBox(height: 8),
       // Thin progress line
@@ -405,8 +381,8 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
         borderRadius: BorderRadius.circular(99),
         child: LinearProgressIndicator(
           value: _totalPlayers == 0 ? 0 : _readyCount / _totalPlayers,
-          backgroundColor: _border,
-          valueColor: const AlwaysStoppedAnimation(_accent),
+          backgroundColor: AppColors.border,
+          valueColor: const AlwaysStoppedAnimation(AppColors.accent),
           minHeight: 3,
         ),
       ),
@@ -422,11 +398,11 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
         child: Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            _PulseDot(),
+            PulseDot(),
             const SizedBox(width: 10),
             const Text(
               'Waiting for everyone to read their word…',
-              style: TextStyle(color: _text, fontSize: 13),
+              style: TextStyle(color: AppColors.textPrimary, fontSize: 13),
             ),
           ],
         ),
@@ -438,9 +414,7 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
   Widget _buildRoster() {
     final playersList = widget.roomState.players.values.toList()
       ..sort((a, b) => a.joinedAt.compareTo(b.joinedAt));
-    // final players = widget.roomState.players.entries;
-    // ..sort((a, b) => a.joinedAt.compareTo(b.joinedAt));
-
+  
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -451,7 +425,7 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
             const Text(
               'Player Roster',
               style: TextStyle(
-                color: _text,
+                color: AppColors.textPrimary,
                 fontSize: 16,
                 fontWeight: FontWeight.w700,
               ),
@@ -459,14 +433,14 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
               decoration: BoxDecoration(
-                color: _surfaceAlt,
+                color: AppColors.surfaceAlt,
                 borderRadius: BorderRadius.circular(99),
-                border: Border.all(color: _border),
+                border: Border.all(color: AppColors.border),
               ),
               child: Text(
                 '$_readyCount / $_totalPlayers READY',
                 style: const TextStyle(
-                  color: _textMuted,
+                  color: AppColors.textMuted,
                   fontSize: 11,
                   fontWeight: FontWeight.w600,
                   letterSpacing: 0.5,
@@ -492,8 +466,9 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
             final isMe = p.id == widget.myId;
             final isHost = p.id == widget.roomState.host;
             final isReady = widget.roomState.revealReady?[p.id] ?? false;
-            final color = _avatarColors[i % _avatarColors.length];
-            return _PlayerCard(
+            final color =
+                AppColors.avatarColors[i % AppColors.avatarColors.length];
+            return PlayerCard(
               player: p,
               isMe: isMe,
               isHost: isHost,
@@ -505,226 +480,4 @@ class _RevealScreenState extends ConsumerState<RevealScreen>
       ],
     );
   }
-}
-
-// ── Sub-widgets ────────────────────────────────────────────────────────────
-
-class _RoleBadge extends StatelessWidget {
-  final String label;
-  final bool isImposter;
-  const _RoleBadge({required this.label, required this.isImposter});
-
-  @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 6),
-    decoration: BoxDecoration(
-      color: (isImposter ? _red : _accent).withOpacity(0.12),
-      borderRadius: BorderRadius.circular(99),
-      border: Border.all(
-        color: (isImposter ? _red : _accent).withOpacity(0.35),
-      ),
-    ),
-    child: Text(
-      label,
-      style: TextStyle(
-        color: isImposter ? _red : _accent,
-        fontSize: 12.5,
-        fontWeight: FontWeight.w700,
-        letterSpacing: 0.8,
-      ),
-    ),
-  );
-}
-
-class _PrimaryButton extends StatelessWidget {
-  final String label;
-  final VoidCallback onTap;
-  const _PrimaryButton({required this.label, required this.onTap});
-
-  @override
-  Widget build(BuildContext context) => SizedBox(
-    width: double.infinity,
-    child: ElevatedButton(
-      onPressed: onTap,
-      style: ElevatedButton.styleFrom(
-        backgroundColor: _accent.withOpacity(0.18),
-        foregroundColor: _accent,
-        side: const BorderSide(color: _accent, width: 1.2),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(99)),
-        padding: const EdgeInsets.symmetric(vertical: 15),
-        elevation: 0,
-      ),
-      child: Text(
-        label,
-        style: const TextStyle(
-          fontWeight: FontWeight.w700,
-          fontSize: 13,
-          letterSpacing: 0.8,
-        ),
-      ),
-    ),
-  );
-}
-
-class _PulseDot extends StatefulWidget {
-  @override
-  State<_PulseDot> createState() => _PulseDotState();
-}
-
-class _PulseDotState extends State<_PulseDot>
-    with SingleTickerProviderStateMixin {
-  late final AnimationController _ctrl;
-  late final Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
-    _anim = Tween(
-      begin: 0.3,
-      end: 1.0,
-    ).animate(CurvedAnimation(parent: _ctrl, curve: Curves.easeInOut));
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => FadeTransition(
-    opacity: _anim,
-    child: Container(
-      width: 8,
-      height: 8,
-      decoration: const BoxDecoration(shape: BoxShape.circle, color: _accent),
-    ),
-  );
-}
-
-class _PlayerCard extends StatelessWidget {
-  final PlayerInfo player;
-  final bool isMe, isHost, isReady;
-  final Color avatarColor;
-  const _PlayerCard({
-    required this.player,
-    required this.isMe,
-    required this.isHost,
-    required this.isReady,
-    required this.avatarColor,
-  });
-
-  @override
-  Widget build(BuildContext context) => Container(
-    decoration: BoxDecoration(
-      color: isMe ? _accentSoft.withOpacity(0.12) : _surfaceAlt,
-      borderRadius: BorderRadius.circular(14),
-      border: Border.all(
-        color: isMe ? _accent.withOpacity(0.4) : _border,
-        width: 1.2,
-      ),
-    ),
-    padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
-    child: Center(
-      child: Stack(
-        clipBehavior: Clip.none,
-        children: [
-          Column(
-            mainAxisAlignment: MainAxisAlignment.center,
-            children: [
-              // Avatar
-              Container(
-                width: 44,
-                height: 44,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  color: avatarColor,
-                ),
-                child: Center(
-                  child: Text(
-                    player.name[0].toUpperCase(),
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 18,
-                      fontWeight: FontWeight.w800,
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(height: 6),
-              // Name
-              Text(
-                isMe ? '${player.name} (You)' : player.name,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                textAlign: TextAlign.center,
-                style: const TextStyle(
-                  color: _text,
-                  fontSize: 14,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              const SizedBox(height: 4),
-              // Status chip
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 6,
-                    height: 6,
-                    decoration: BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: isReady ? _green : _amber,
-                    ),
-                  ),
-                  const SizedBox(width: 4),
-                  Text(
-                    isReady ? 'READY' : 'WAITING...',
-                    style: TextStyle(
-                      color: isReady ? _green : _amber,
-                      fontSize: 11,
-                      fontWeight: FontWeight.w700,
-                      letterSpacing: 0.5,
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-          // HOST badge
-          if (isHost)
-            Positioned(
-              top: -18,
-              left: 0,
-              right: 0,
-              child: Center(
-                child: Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 8,
-                    vertical: 2,
-                  ),
-                  decoration: BoxDecoration(
-                    color: _accentSoft,
-                    borderRadius: BorderRadius.circular(99),
-                  ),
-                  child: const Text(
-                    'HOST',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.w800,
-                      letterSpacing: 0.6,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    ),
-  );
 }
