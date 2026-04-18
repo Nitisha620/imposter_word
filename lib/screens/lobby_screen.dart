@@ -3,36 +3,18 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:google_fonts/google_fonts.dart';
+import 'package:word_imposter/theme/app_colors.dart';
+import 'package:word_imposter/widgets/error_box.dart';
 
 import '../models/chat_message.dart';
 import '../models/pill_item.dart';
 import '../state/player_info.dart';
 import '../state/room_state.dart';
-
-// ─── Colour palette (shared with HomeScreen) ─────────────────────────────────
-const _bg = Color(0xFF0B0F1A);
-const _card = Color(0xFF111827);
-const _border = Color(0xFF1E2740);
-const _purple = Color(0xFF7C6EF5);
-const _purpleDim = Color(0xFF4B44A0);
-const _white70 = Color(0xB3FFFFFF);
-const _white38 = Color(0x61FFFFFF);
-const _white12 = Color(0x1FFFFFFF);
-const _green = Color(0xFF34D399);
-const _errorBg = Color(0xFFE53935);
-
-const _avatarColors = [
-  Color(0xFF6D62F5),
-  Color(0xFFF87171),
-  Color(0xFF34D399),
-  Color(0xFFFBBF24),
-  Color(0xFF38BDF8),
-  Color(0xFFF472B6),
-  Color(0xFFA3E635),
-  Color(0xFFFB923C),
-  Color(0xFFE879F9),
-  Color(0xFF2DD4BF),
-];
+import '../widgets/chat_bubble.dart';
+import '../widgets/kick_bottom_sheet.dart';
+import '../widgets/kick_dialog.dart';
+import '../widgets/pill_row.dart';
+import '../widgets/pulse_dot.dart';
 
 const _timerPresets = [0, 60, 120, 180, 300];
 
@@ -81,8 +63,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
   final _chatCtrl = TextEditingController();
   final _chatScrollCtrl = ScrollController();
-  bool _showChat = false;
 
+  bool _showChat = false;
   int _lastSeenCount = 0;
   int get _unreadCount {
     if (_showChat) {
@@ -147,9 +129,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
-      builder: (_) => _KickBottomSheet(
+      builder: (_) => KickBottomSheet(
         player: player,
-        avatarColor: avatarColor, // ← pass it in
+        avatarColor: avatarColor,
         onKick: () {
           Navigator.pop(context);
           widget.onKick(player.id);
@@ -166,9 +148,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   ) {
     showDialog(
       context: context,
-      builder: (_) => _KickDialog(
+      builder: (_) => KickDialog(
         player: player,
-        avatarColor: avatarColor, // ← pass it in
+        avatarColor: avatarColor,
         onKick: () {
           Navigator.pop(context);
           widget.onKick(player.id);
@@ -235,7 +217,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: _bg,
+        backgroundColor: AppColors.bg,
         floatingActionButton: _isWideScreen || _showChat
             ? null
             : _buildChatFab(),
@@ -267,7 +249,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                     _buildPlayerGrid(),
                     if (widget.error != null) ...[
                       const SizedBox(height: 12),
-                      _buildErrorBox(),
+                      ErrorBox(error: widget.error!),
                     ],
                     const SizedBox(height: 16),
                     _buildSettingsCard(),
@@ -315,7 +297,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                               width: 40,
                               height: 4,
                               decoration: BoxDecoration(
-                                color: _white38,
+                                color: AppColors.white38,
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),
@@ -328,7 +310,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                 style: GoogleFonts.barlow(
                                   fontSize: 14,
                                   fontWeight: FontWeight.w800,
-                                  color: _purple,
+                                  color: AppColors.purple,
                                   letterSpacing: 2,
                                 ),
                               ),
@@ -339,12 +321,12 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                                   width: 32,
                                   height: 32,
                                   decoration: BoxDecoration(
-                                    color: _white12,
+                                    color: AppColors.white12,
                                     shape: BoxShape.circle,
                                   ),
                                   child: const Icon(
                                     Icons.close_rounded,
-                                    color: _white70,
+                                    color: AppColors.white70,
                                     size: 16,
                                   ),
                                 ),
@@ -354,7 +336,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                         ],
                       ),
                     ),
-                    Divider(color: _border, height: 20),
+                    Divider(color: AppColors.border, height: 20),
                     // Messages
                     Expanded(child: _buildChatMessagesList()),
                     // Input
@@ -381,11 +363,11 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         width: 56,
         height: 56,
         decoration: BoxDecoration(
-          color: _purple,
+          color: AppColors.purple,
           shape: BoxShape.circle,
           boxShadow: [
             BoxShadow(
-              color: _purple.withOpacity(0.4),
+              color: AppColors.purple.withOpacity(0.4),
               blurRadius: 16,
               offset: const Offset(0, 4),
             ),
@@ -444,7 +426,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       _buildPlayerGrid(),
                       if (widget.error != null) ...[
                         const SizedBox(height: 12),
-                        _buildErrorBox(),
+                        ErrorBox(error: widget.error!),
                       ],
                       const SizedBox(height: 16),
                       _buildSettingsCard(),
@@ -459,7 +441,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         ),
 
         // Divider
-        VerticalDivider(color: _border, width: 1),
+        VerticalDivider(color: AppColors.border, width: 1),
 
         // Right: persistent chat panel
         SizedBox(width: 300, child: _buildWebChatPanel()),
@@ -477,18 +459,22 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           Container(
             padding: const EdgeInsets.fromLTRB(16, 16, 16, 12),
             decoration: BoxDecoration(
-              border: Border(bottom: BorderSide(color: _border)),
+              border: Border(bottom: BorderSide(color: AppColors.border)),
             ),
             child: Row(
               children: [
-                const Icon(Icons.chat_rounded, color: _purple, size: 16),
+                const Icon(
+                  Icons.chat_rounded,
+                  color: AppColors.purple,
+                  size: 16,
+                ),
                 const SizedBox(width: 8),
                 Text(
                   'LOBBY CHAT',
                   style: GoogleFonts.barlow(
                     fontSize: 13,
                     fontWeight: FontWeight.w800,
-                    color: _purple,
+                    color: AppColors.purple,
                     letterSpacing: 2,
                   ),
                 ),
@@ -500,7 +486,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: _purple.withOpacity(0.2),
+                      color: AppColors.purple.withOpacity(0.2),
                       borderRadius: BorderRadius.circular(8),
                     ),
                     child: Text(
@@ -508,7 +494,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       style: GoogleFonts.barlow(
                         fontSize: 11,
                         fontWeight: FontWeight.w700,
-                        color: _purple,
+                        color: AppColors.purple,
                       ),
                     ),
                   ),
@@ -523,7 +509,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           // Input
           Container(
             decoration: BoxDecoration(
-              border: Border(top: BorderSide(color: _border)),
+              border: Border(top: BorderSide(color: AppColors.border)),
             ),
             child: _buildChatInputRow(),
           ),
@@ -544,14 +530,14 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
               'No messages yet',
               style: GoogleFonts.inter(
                 fontSize: 13,
-                color: _white38,
+                color: AppColors.white38,
                 fontWeight: FontWeight.w600,
               ),
             ),
             const SizedBox(height: 4),
             Text(
               'Say hi to your lobby!',
-              style: GoogleFonts.inter(fontSize: 12, color: _white38),
+              style: GoogleFonts.inter(fontSize: 12, color: AppColors.white38),
             ),
           ],
         ),
@@ -567,7 +553,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
         final isMe = msg.senderId == widget.myId;
         final pIdx = _players.indexWhere((p) => p.id == msg.senderId);
         final color =
-            _avatarColors[(pIdx >= 0 ? pIdx : 0) % _avatarColors.length];
+            AppColors.avatarColors[(pIdx >= 0 ? pIdx : 0) %
+                AppColors.avatarColors.length];
 
         return Padding(
           padding: const EdgeInsets.only(bottom: 10),
@@ -586,7 +573,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                         ),
                       ),
                       const SizedBox(height: 3),
-                      _ChatBubble(text: msg.text, isMe: true, color: color),
+                      ChatBubble(text: msg.text, isMe: true, color: color),
                     ],
                   ),
                 )
@@ -602,7 +589,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       ),
                     ),
                     const SizedBox(height: 3),
-                    _ChatBubble(text: msg.text, isMe: false, color: color),
+                    ChatBubble(text: msg.text, isMe: false, color: color),
                   ],
                 ),
         );
@@ -619,20 +606,23 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 2),
               decoration: BoxDecoration(
-                color: _bg,
+                color: AppColors.bg,
                 borderRadius: BorderRadius.circular(12),
-                border: Border.all(color: _border),
+                border: Border.all(color: AppColors.border),
               ),
               child: TextField(
                 controller: _chatCtrl,
                 style: GoogleFonts.inter(color: Colors.white, fontSize: 13),
-                cursorColor: _purple,
+                cursorColor: AppColors.purple,
                 maxLength: 200,
                 textInputAction: TextInputAction.send,
                 onSubmitted: (_) => _sendChat(),
                 decoration: InputDecoration(
                   hintText: 'Send a message…',
-                  hintStyle: GoogleFonts.inter(color: _white38, fontSize: 13),
+                  hintStyle: GoogleFonts.inter(
+                    color: AppColors.white38,
+                    fontSize: 13,
+                  ),
                   border: InputBorder.none,
                   counterText: '',
                   isDense: true,
@@ -653,13 +643,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                   width: 40,
                   height: 40,
                   decoration: BoxDecoration(
-                    color: empty ? _white12 : _purple,
+                    color: empty ? AppColors.white12 : AppColors.purple,
                     borderRadius: BorderRadius.circular(12),
                     boxShadow: empty
                         ? []
                         : [
                             BoxShadow(
-                              color: _purple.withOpacity(0.4),
+                              color: AppColors.purple.withOpacity(0.4),
                               blurRadius: 8,
                             ),
                           ],
@@ -667,7 +657,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                   alignment: Alignment.center,
                   child: Icon(
                     Icons.send_rounded,
-                    color: empty ? _white38 : Colors.white,
+                    color: empty ? AppColors.white38 : Colors.white,
                     size: 18,
                   ),
                 ),
@@ -682,9 +672,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   Widget _buildCodeHero() {
     return Container(
       decoration: BoxDecoration(
-        color: _card,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Stack(
         children: [
@@ -724,7 +714,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                   style: GoogleFonts.barlow(
                     fontSize: 11,
                     fontWeight: FontWeight.w700,
-                    color: _white38,
+                    color: AppColors.white38,
                     letterSpacing: 2,
                   ),
                 ),
@@ -737,7 +727,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       style: GoogleFonts.barlow(
                         fontSize: 38,
                         fontWeight: FontWeight.w900,
-                        color: _purple,
+                        color: AppColors.purple,
                         letterSpacing: 4,
                       ),
                     ),
@@ -748,16 +738,16 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                         width: 38,
                         height: 38,
                         decoration: BoxDecoration(
-                          color: _white12,
+                          color: AppColors.white12,
                           borderRadius: BorderRadius.circular(10),
-                          border: Border.all(color: _border),
+                          border: Border.all(color: AppColors.border),
                         ),
                         alignment: Alignment.center,
                         child: Icon(
                           _copied
                               ? Icons.check_rounded
                               : Icons.content_copy_rounded,
-                          color: _copied ? _green : _white70,
+                          color: _copied ? AppColors.green : AppColors.white70,
                           size: 18,
                         ),
                       ),
@@ -769,7 +759,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                   'Waiting for players to join the lobby...',
                   style: GoogleFonts.inter(
                     fontSize: 12.5,
-                    color: _white70,
+                    color: AppColors.white70,
                     fontStyle: FontStyle.italic,
                   ),
                 ),
@@ -806,7 +796,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
   Widget _buildPlayerCard(PlayerInfo p, int idx) {
     final isHostPlayer = p.id == widget.roomState.host;
-    final avatarClr = _avatarColors[idx % _avatarColors.length];
+    final avatarClr =
+        AppColors.avatarColors[idx % AppColors.avatarColors.length];
     final canKick = widget.isHost && p.id != widget.myId;
 
     return GestureDetector(
@@ -814,10 +805,14 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
       onTap: canKick ? () => _showKickSheet(context, p, avatarClr) : null,
       child: Container(
         decoration: BoxDecoration(
-          color: isHostPlayer ? _purple.withOpacity(0.08) : _card,
+          color: isHostPlayer
+              ? AppColors.purple.withOpacity(0.08)
+              : AppColors.card,
           borderRadius: BorderRadius.circular(12),
           border: Border.all(
-            color: isHostPlayer ? _purple.withOpacity(0.4) : _border,
+            color: isHostPlayer
+                ? AppColors.purple.withOpacity(0.4)
+                : AppColors.border,
           ),
         ),
         padding: const EdgeInsets.symmetric(vertical: 10, horizontal: 6),
@@ -837,7 +832,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       vertical: 2,
                     ),
                     decoration: BoxDecoration(
-                      color: _purple,
+                      color: AppColors.purple,
                       borderRadius: BorderRadius.circular(6),
                     ),
                     child: Text(
@@ -862,14 +857,18 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                   width: 18,
                   height: 18,
                   decoration: BoxDecoration(
-                    color: _white12,
+                    color: AppColors.white12,
                     shape: BoxShape.circle,
-                    border: Border.all(color: _border),
+                    border: Border.all(color: AppColors.border),
                   ),
                   alignment: Alignment.center,
                   child: const Text(
                     '⋮',
-                    style: TextStyle(fontSize: 10, color: _white38, height: 1),
+                    style: TextStyle(
+                      fontSize: 10,
+                      color: AppColors.white38,
+                      height: 1,
+                    ),
                   ),
                 ),
               ),
@@ -914,7 +913,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       width: 6,
                       height: 6,
                       decoration: const BoxDecoration(
-                        color: _green,
+                        color: AppColors.green,
                         shape: BoxShape.circle,
                       ),
                     ),
@@ -924,7 +923,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                       style: GoogleFonts.barlow(
                         fontSize: 9,
                         fontWeight: FontWeight.w700,
-                        color: _green,
+                        color: AppColors.green,
                         letterSpacing: 0.8,
                       ),
                     ),
@@ -941,21 +940,25 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
   Widget _buildEmptySlot() {
     return Container(
       decoration: BoxDecoration(
-        color: _card,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: _border, style: BorderStyle.solid),
+        border: Border.all(color: AppColors.border, style: BorderStyle.solid),
       ),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(Icons.person_add_alt_1_rounded, color: _white38, size: 22),
+          Icon(
+            Icons.person_add_alt_1_rounded,
+            color: AppColors.white38,
+            size: 22,
+          ),
           const SizedBox(height: 6),
           Text(
             'WAITING',
             style: GoogleFonts.barlow(
               fontSize: 9,
               fontWeight: FontWeight.w700,
-              color: _white38,
+              color: AppColors.white38,
               letterSpacing: 1,
             ),
           ),
@@ -970,9 +973,9 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     return Container(
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: _card,
+        color: AppColors.card,
         borderRadius: BorderRadius.circular(16),
-        border: Border.all(color: _border),
+        border: Border.all(color: AppColors.border),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -982,7 +985,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             style: GoogleFonts.barlow(
               fontSize: 13,
               fontWeight: FontWeight.w800,
-              color: _purple,
+              color: AppColors.purple,
               letterSpacing: 2,
             ),
           ),
@@ -991,7 +994,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           // Game Mode
           _SettingGroup(
             label: 'GAME MODE',
-            child: _PillRow(
+            child: PillRow(
               items: const [
                 PillItem('knows', '😈 Knows'),
                 PillItem('secret', '🤫 Secret'),
@@ -1013,7 +1016,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
               runSpacing: 8,
               children: _timerPresets.map((t) {
                 final active = _timerSecs == t;
-                return _Pill(
+                return Pill(
                   label: _timerLabel(t),
                   active: active,
                   enabled: widget.isHost,
@@ -1028,7 +1031,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
           // Number of Impostors
           _SettingGroup(
             label: 'NUMBER OF IMPOSTORS',
-            child: _PillRow(
+            child: PillRow(
               items: [1, 2, 3]
                   .where((n) => n <= _maxImp)
                   .map((n) => PillItem(n.toString(), n.toString()))
@@ -1050,38 +1053,13 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
               children: [3, 4, 5, 6, 7, 8, 9, 10].map((n) {
                 final active = _maxPlayers == n;
                 final enabled = widget.isHost && _players.length <= n;
-                return _Pill(
+                return Pill(
                   label: n.toString(),
                   active: active,
                   enabled: enabled,
                   onTap: () => widget.onPlayerCount(n),
                 );
               }).toList(),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  // ── ERROR BOX ──────────────────────────────────────────────────────────────
-
-  Widget _buildErrorBox() {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      decoration: BoxDecoration(
-        color: _errorBg.withOpacity(0.15),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: _errorBg.withOpacity(0.5)),
-      ),
-      child: Row(
-        children: [
-          const Icon(Icons.warning_amber_rounded, color: _errorBg, size: 18),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(
-              widget.error!,
-              style: GoogleFonts.inter(color: _errorBg, fontSize: 13),
             ),
           ),
         ],
@@ -1097,8 +1075,8 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
     return Container(
       padding: const EdgeInsets.fromLTRB(16, 12, 16, 16),
       decoration: BoxDecoration(
-        color: _bg,
-        border: Border(top: BorderSide(color: _border)),
+        color: AppColors.bg,
+        border: Border(top: BorderSide(color: AppColors.border)),
       ),
       child: Column(
         mainAxisSize: MainAxisSize.min,
@@ -1112,15 +1090,19 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                   duration: const Duration(milliseconds: 200),
                   padding: const EdgeInsets.symmetric(vertical: 16),
                   decoration: BoxDecoration(
-                    color: canStart ? _purple : _purpleDim.withOpacity(0.5),
+                    color: canStart
+                        ? AppColors.purple
+                        : AppColors.purpleDim.withOpacity(0.5),
                     borderRadius: BorderRadius.circular(14),
                     border: Border.all(
-                      color: canStart ? _purple.withOpacity(0.8) : _border,
+                      color: canStart
+                          ? AppColors.purple.withOpacity(0.8)
+                          : AppColors.border,
                     ),
                     boxShadow: canStart
                         ? [
                             BoxShadow(
-                              color: _purple.withOpacity(0.35),
+                              color: AppColors.purple.withOpacity(0.35),
                               blurRadius: 20,
                               spreadRadius: 0,
                             ),
@@ -1135,7 +1117,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
                     style: GoogleFonts.barlow(
                       fontSize: 15,
                       fontWeight: FontWeight.w800,
-                      color: canStart ? Colors.white : _white38,
+                      color: canStart ? Colors.white : AppColors.white38,
                       letterSpacing: 1.5,
                     ),
                   ),
@@ -1147,18 +1129,21 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
               width: double.infinity,
               padding: const EdgeInsets.symmetric(vertical: 14),
               decoration: BoxDecoration(
-                color: _white12,
+                color: AppColors.white12,
                 borderRadius: BorderRadius.circular(14),
-                border: Border.all(color: _border),
+                border: Border.all(color: AppColors.border),
               ),
               child: Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  _PulseDot(),
+                  PulseDot(),
                   const SizedBox(width: 10),
                   Text(
                     'Waiting for the host to start the match…',
-                    style: GoogleFonts.inter(fontSize: 13, color: _white70),
+                    style: GoogleFonts.inter(
+                      fontSize: 13,
+                      color: AppColors.white70,
+                    ),
                   ),
                 ],
               ),
@@ -1170,7 +1155,7 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
             style: GoogleFonts.barlow(
               fontSize: 11,
               fontWeight: FontWeight.w700,
-              color: _white38,
+              color: AppColors.white38,
               letterSpacing: 1.5,
             ),
           ),
@@ -1189,86 +1174,6 @@ class _LobbyScreenState extends ConsumerState<LobbyScreen> {
 
 // ─── Reusable sub-widgets ─────────────────────────────────────────────────────
 
-/// Row of pill buttons.
-class _PillRow extends StatelessWidget {
-  final List<PillItem> items;
-  final String selected;
-  final bool enabled;
-  final void Function(String) onTap;
-
-  const _PillRow({
-    required this.items,
-    required this.selected,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      children: items.map((item) {
-        return _Pill(
-          label: item.label,
-          active: selected == item.value,
-          enabled: enabled,
-          onTap: () => onTap(item.value),
-        );
-      }).toList(),
-    );
-  }
-}
-
-/// Single pill button.
-class _Pill extends StatelessWidget {
-  final String label;
-  final bool active;
-  final bool enabled;
-  final VoidCallback onTap;
-
-  const _Pill({
-    required this.label,
-    required this.active,
-    required this.enabled,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: enabled ? onTap : null,
-      child: AnimatedContainer(
-        duration: const Duration(milliseconds: 150),
-        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 7),
-        decoration: BoxDecoration(
-          color: active
-              ? _purple.withOpacity(0.25)
-              : Colors.white.withOpacity(0.05),
-          borderRadius: BorderRadius.circular(20),
-          border: Border.all(
-            color: active ? _purple : _border,
-            width: active ? 1.5 : 1,
-          ),
-        ),
-        child: Text(
-          label,
-          style: GoogleFonts.barlow(
-            fontSize: 12,
-            fontWeight: FontWeight.w700,
-            color: active
-                ? Colors.white
-                : enabled
-                ? _white70
-                : _white38,
-            letterSpacing: 0.3,
-          ),
-        ),
-      ),
-    );
-  }
-}
-
 /// Setting label + child widget group.
 class _SettingGroup extends StatelessWidget {
   final String label;
@@ -1286,358 +1191,13 @@ class _SettingGroup extends StatelessWidget {
           style: GoogleFonts.barlow(
             fontSize: 10,
             fontWeight: FontWeight.w800,
-            color: _white38,
+            color: AppColors.white38,
             letterSpacing: 1.5,
           ),
         ),
         const SizedBox(height: 8),
         child,
       ],
-    );
-  }
-}
-
-/// Chat message bubble.
-class _ChatBubble extends StatelessWidget {
-  final String text;
-  final bool isMe;
-  final Color color;
-
-  const _ChatBubble({
-    required this.text,
-    required this.isMe,
-    required this.color,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      constraints: BoxConstraints(
-        maxWidth: MediaQuery.of(context).size.width * 0.65,
-      ),
-      decoration: BoxDecoration(
-        color: isMe
-            ? _purple.withOpacity(0.22)
-            : Colors.white.withOpacity(0.06),
-        borderRadius: BorderRadius.only(
-          topLeft: const Radius.circular(12),
-          topRight: const Radius.circular(12),
-          bottomLeft: Radius.circular(isMe ? 12 : 2),
-          bottomRight: Radius.circular(isMe ? 2 : 12),
-        ),
-        border: Border.all(color: isMe ? _purple.withOpacity(0.3) : _border),
-      ),
-      child: Text(
-        text,
-        style: GoogleFonts.inter(
-          fontSize: 13,
-          color: Colors.white,
-          height: 1.4,
-        ),
-      ),
-    );
-  }
-}
-
-/// Animated pulsing green dot for the "waiting" pill.
-class _PulseDot extends StatefulWidget {
-  @override
-  State<_PulseDot> createState() => _PulseDotState();
-}
-
-class _PulseDotState extends State<_PulseDot>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _ctrl;
-  late Animation<double> _anim;
-
-  @override
-  void initState() {
-    super.initState();
-    _ctrl = AnimationController(
-      vsync: this,
-      duration: const Duration(milliseconds: 900),
-    )..repeat(reverse: true);
-    _anim = Tween<double>(begin: 0.3, end: 1.0).animate(_ctrl);
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    return FadeTransition(
-      opacity: _anim,
-      child: Container(
-        width: 8,
-        height: 8,
-        decoration: const BoxDecoration(color: _purple, shape: BoxShape.circle),
-      ),
-    );
-  }
-
-  @override
-  void dispose() {
-    _ctrl.dispose();
-    super.dispose();
-  }
-}
-
-class _KickBottomSheet extends StatelessWidget {
-  final PlayerInfo player;
-  final Color avatarColor;
-  final VoidCallback onKick;
-  final VoidCallback onCancel;
-
-  const _KickBottomSheet({
-    required this.player,
-    required this.avatarColor,
-    required this.onKick,
-    required this.onCancel,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      decoration: const BoxDecoration(
-        color: Color(0xFF131929),
-        borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
-      ),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          // Drag handle
-          Container(
-            margin: const EdgeInsets.only(top: 12),
-            width: 40,
-            height: 4,
-            decoration: BoxDecoration(
-              color: _white38,
-              borderRadius: BorderRadius.circular(2),
-            ),
-          ),
-
-          const SizedBox(height: 20),
-
-          // Player info row
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 24),
-            child: Row(
-              children: [
-                Container(
-                  width: 52,
-                  height: 52,
-                  decoration: BoxDecoration(
-                    color: avatarColor,
-                    shape: BoxShape.circle,
-                  ),
-                  alignment: Alignment.center,
-                  child: Text(
-                    player.name[0].toUpperCase(),
-                    style: GoogleFonts.barlow(
-                      fontSize: 22,
-                      fontWeight: FontWeight.w800,
-                      color: Colors.white,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 14),
-                Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      player.name,
-                      style: GoogleFonts.barlow(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w700,
-                        color: Colors.white,
-                      ),
-                    ),
-                    Text(
-                      'Active player',
-                      style: GoogleFonts.inter(fontSize: 12, color: _white38),
-                    ),
-                  ],
-                ),
-              ],
-            ),
-          ),
-
-          const SizedBox(height: 24),
-          Divider(color: _border, height: 1),
-          const SizedBox(height: 8),
-
-          // Kick option
-          ListTile(
-            onTap: onKick,
-            leading: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.12),
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: const Icon(
-                Icons.person_remove_rounded,
-                color: Colors.redAccent,
-                size: 20,
-              ),
-            ),
-            title: Text(
-              'Remove from room',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: Colors.redAccent,
-              ),
-            ),
-            subtitle: Text(
-              'They will be sent back to the home screen',
-              style: GoogleFonts.inter(fontSize: 12, color: _white38),
-            ),
-          ),
-
-          // Cancel option
-          ListTile(
-            onTap: onCancel,
-            leading: Container(
-              width: 40,
-              height: 40,
-              decoration: BoxDecoration(
-                color: _white12,
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: const Icon(Icons.close_rounded, color: _white70, size: 20),
-            ),
-            title: Text(
-              'Cancel',
-              style: GoogleFonts.inter(
-                fontSize: 14,
-                fontWeight: FontWeight.w600,
-                color: _white70,
-              ),
-            ),
-          ),
-
-          // Safe area bottom padding
-          SizedBox(height: MediaQuery.of(context).padding.bottom + 12),
-        ],
-      ),
-    );
-  }
-}
-
-class _KickDialog extends StatelessWidget {
-  final PlayerInfo player;
-  final Color avatarColor;
-  final VoidCallback onKick;
-  final VoidCallback onCancel;
-
-  const _KickDialog({
-    required this.player,
-    required this.avatarColor,
-    required this.onKick,
-    required this.onCancel,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Dialog(
-      backgroundColor: const Color(0xFF131929),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
-      child: Padding(
-        padding: const EdgeInsets.all(24),
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            // Icon
-            Container(
-              width: 56,
-              height: 56,
-              decoration: BoxDecoration(
-                color: Colors.red.withOpacity(0.12),
-                shape: BoxShape.circle,
-              ),
-              alignment: Alignment.center,
-              child: const Icon(
-                Icons.person_remove_rounded,
-                color: Colors.redAccent,
-                size: 28,
-              ),
-            ),
-            const SizedBox(height: 16),
-
-            Text(
-              'Remove ${player.name}?',
-              style: GoogleFonts.barlow(
-                fontSize: 18,
-                fontWeight: FontWeight.w700,
-                color: Colors.white,
-              ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              'They will be sent back to the home screen and cannot rejoin.',
-              textAlign: TextAlign.center,
-              style: GoogleFonts.inter(
-                fontSize: 13,
-                color: _white70,
-                height: 1.5,
-              ),
-            ),
-            const SizedBox(height: 24),
-
-            Row(
-              children: [
-                Expanded(
-                  child: GestureDetector(
-                    onTap: onCancel,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      decoration: BoxDecoration(
-                        color: _white12,
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: _border),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        'Cancel',
-                        style: GoogleFonts.barlow(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: _white70,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: GestureDetector(
-                    onTap: onKick,
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(vertical: 13),
-                      decoration: BoxDecoration(
-                        color: Colors.red.withOpacity(0.15),
-                        borderRadius: BorderRadius.circular(12),
-                        border: Border.all(color: Colors.red.withOpacity(0.5)),
-                      ),
-                      alignment: Alignment.center,
-                      child: Text(
-                        'Remove',
-                        style: GoogleFonts.barlow(
-                          fontSize: 13,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.redAccent,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
