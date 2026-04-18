@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:word_imposter/theme/app_colors.dart';
 
+enum BadgeVariant { innocent, imposter, dead }
 class RoleBadge extends StatelessWidget {
   final String label;
   final bool isImposter;
-  const RoleBadge({required this.label, required this.isImposter});
+  final BadgeVariant? variant;
+  const RoleBadge({required this.label, required this.isImposter, this.variant});
 
   @override
   Widget build(BuildContext context) => Container(
