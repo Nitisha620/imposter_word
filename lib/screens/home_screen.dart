@@ -1,30 +1,19 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:google_fonts/google_fonts.dart';
 import 'package:word_imposter/state/game_controller.dart';
+import 'package:word_imposter/theme/app_text_styles.dart';
 
 import '../data/rule_data.dart';
-import '../models/rule.dart';
-import '../services/session_service.dart';
 import '../state/game_state.dart';
+import '../theme/app_colors.dart';
 import '../widgets/action_button.dart';
 import '../widgets/game_loader.dart';
 import '../widgets/glass_container.dart';
 import '../widgets/icon_badge.dart';
-
-// ─── Colours / constants ─────────────────────────────────────────────────────
-
-const _bg = Color(0xFF0B0F1A);
-const _border = Color(0xFF1E2740);
-const _purple = Color(0xFF7C6EF5);
-const _white70 = Color(0xB3FFFFFF);
-const _white38 = Color(0x61FFFFFF);
-const _inputBg = Color(0xFF0E1422);
-const _errorBg = Color(0xFFE53935);
+import '../widgets/rules_section.dart';
 
 // ─── HomeScreen ──────────────────────────────────────────────────────────────
-
 class HomeScreen extends ConsumerStatefulWidget {
   const HomeScreen({super.key});
 
@@ -75,7 +64,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
   // ── build ──────────────────────────────────────────────────────────────────
   @override
   Widget build(BuildContext context) {
-    // Update your listener
     ref.listen<GameState>(gameProvider, (previous, next) {
       if (next.isLoading != previous?.isLoading ||
           next.loadingMessage != previous?.loadingMessage) {
@@ -92,25 +80,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
         ScaffoldMessenger.of(context).showSnackBar(
           SnackBar(
             behavior: SnackBarBehavior.floating,
-            backgroundColor: _errorBg.withOpacity(0.15),
+            backgroundColor: AppColors.errorRed.withOpacity(0.15),
             shape: RoundedRectangleBorder(
               borderRadius: BorderRadius.circular(10),
-              side: BorderSide(color: _errorBg.withOpacity(0.5)),
+              side: BorderSide(color: AppColors.errorRed.withOpacity(0.5)),
             ),
             content: Row(
               children: [
                 const Icon(
                   Icons.warning_amber_rounded,
-                  color: _errorBg,
+                  color: AppColors.errorRed,
                   size: 18,
                 ),
                 const SizedBox(width: 8),
-                Expanded(
-                  child: Text(
-                    next,
-                    style: GoogleFonts.inter(color: _errorBg, fontSize: 13),
-                  ),
-                ),
+                Expanded(child: Text(next, style: AppTextStyles.errorText)),
               ],
             ),
             duration: const Duration(seconds: 4),
@@ -124,7 +107,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return AnnotatedRegion<SystemUiOverlayStyle>(
       value: SystemUiOverlayStyle.light,
       child: Scaffold(
-        backgroundColor: _bg,
+        backgroundColor: AppColors.bg,
         resizeToAvoidBottomInset: true,
         body: Stack(
           children: [
@@ -137,7 +120,10 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               child: Container(
                 decoration: BoxDecoration(
                   gradient: RadialGradient(
-                    colors: [_purple.withAlpha(80), Colors.transparent],
+                    colors: [
+                      AppColors.purple.withAlpha(80),
+                      Colors.transparent,
+                    ],
                     radius: 0.9,
                     center: Alignment.topCenter,
                   ),
@@ -182,34 +168,20 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
     return Column(
       children: [
         Text(
-          'IMPOSTOR',
-          textAlign: TextAlign.center,
-          style: GoogleFonts.barlow(
-            fontSize: 38,
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            letterSpacing: 2,
-          ),
-        ),
-        Text(
           'WORD',
           textAlign: TextAlign.center,
-          style: GoogleFonts.barlow(
-            fontSize: 38,
-            fontWeight: FontWeight.w900,
-            color: Colors.white,
-            letterSpacing: 2,
-          ),
+          style: AppTextStyles.heroTitle,
+        ),
+        Text(
+          'IMPOSTER',
+          textAlign: TextAlign.center,
+          style: AppTextStyles.heroTitle,
         ),
         const SizedBox(height: 12),
         Text(
           'Trust no one. The word is the key, but the silence is deadly.',
           textAlign: TextAlign.center,
-          style: GoogleFonts.inter(
-            fontSize: 13.5,
-            color: _white70,
-            height: 1.5,
-          ),
+          style: AppTextStyles.bodyMd,
         ),
       ],
     );
@@ -222,19 +194,19 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
       child: Row(
         children: [
-          const Icon(Icons.person, color: _white38, size: 20),
+          const Icon(Icons.person, color: AppColors.white38, size: 20),
           const SizedBox(width: 10),
           Expanded(
             child: TextField(
               controller: _nameCtrl,
               focusNode: _nameFocus,
-              style: GoogleFonts.inter(color: Colors.white, fontSize: 14),
-              cursorColor: _purple,
+              style: AppTextStyles.inputText,
+              cursorColor: AppColors.purple,
               maxLength: 14,
               textInputAction: TextInputAction.done,
               decoration: InputDecoration(
                 hintText: 'Enter your name…',
-                hintStyle: GoogleFonts.inter(color: _white38, fontSize: 14),
+                hintStyle: AppTextStyles.inputHint,
                 border: InputBorder.none,
                 counterText: '',
                 isDense: true,
@@ -255,24 +227,16 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          IconBadge(icon: Icons.add_circle_outline_rounded, color: _purple),
-          const SizedBox(height: 14),
-          Text(
-            'Create a Private Room',
-            style: GoogleFonts.barlow(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
+          IconBadge(
+            icon: Icons.add_circle_outline_rounded,
+            color: AppColors.purple,
           ),
+          const SizedBox(height: 14),
+          Text('Create a Private Room', style: AppTextStyles.cardTitle),
           const SizedBox(height: 6),
           Text(
             'Host a secure match for your friends. Change mode and round settings in the lobby.',
-            style: GoogleFonts.inter(
-              fontSize: 12.5,
-              color: _white70,
-              height: 1.5,
-            ),
+            style: AppTextStyles.bodySm,
           ),
           const SizedBox(height: 16),
           ActionButton(
@@ -297,34 +261,22 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          IconBadge(icon: Icons.key_rounded, color: _purple),
+          IconBadge(icon: Icons.key_rounded, color: AppColors.purple),
           const SizedBox(height: 14),
-          Text(
-            'Join a Private Room',
-            style: GoogleFonts.barlow(
-              fontSize: 17,
-              fontWeight: FontWeight.w700,
-              color: Colors.white,
-            ),
-          ),
+          Text('Join a Private Room', style: AppTextStyles.cardTitle),
           const SizedBox(height: 12),
           Container(
             decoration: BoxDecoration(
-              color: _inputBg,
+              color: AppColors.inputBg,
               borderRadius: BorderRadius.circular(10),
-              border: Border.all(color: _border),
+              border: Border.all(color: AppColors.border),
             ),
             padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 2),
             child: TextField(
               controller: _codeCtrl,
               focusNode: _codeFocus,
-              style: GoogleFonts.inter(
-                color: Colors.white,
-                fontSize: 13,
-                letterSpacing: 2,
-                fontWeight: FontWeight.w600,
-              ),
-              cursorColor: _purple,
+              style: AppTextStyles.roomCode,
+              cursorColor: AppColors.purple,
               maxLength: 6,
               textCapitalization: TextCapitalization.characters,
               onChanged: (v) => _codeCtrl.value = _codeCtrl.value.copyWith(
@@ -334,11 +286,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
               textInputAction: TextInputAction.done,
               decoration: InputDecoration(
                 hintText: 'ENTER ROOM CODE',
-                hintStyle: GoogleFonts.inter(
-                  color: _white38,
-                  fontSize: 13,
-                  letterSpacing: 2,
-                ),
+                hintStyle: AppTextStyles.inputHint,
                 border: InputBorder.none,
                 counterText: '',
                 isDense: true,
@@ -374,14 +322,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           border: Border.all(color: Colors.white.withOpacity(0.15)),
         ),
         alignment: Alignment.center,
-        child: Text(
-          '?',
-          style: GoogleFonts.barlow(
-            fontSize: 20,
-            fontWeight: FontWeight.w700,
-            color: Colors.white,
-          ),
-        ),
+        child: Icon(Icons.question_mark, size: 20),
       ),
     );
   }
@@ -397,7 +338,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           decoration: BoxDecoration(
             color: const Color(0xFF121826),
             borderRadius: BorderRadius.circular(20),
-            border: Border.all(color: _border),
+            border: Border.all(color: AppColors.border),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -410,11 +351,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                     Expanded(
                       child: Text(
                         'How to Play',
-                        style: GoogleFonts.barlow(
-                          fontSize: 19,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
+                        style: AppTextStyles.dialogTitle,
                       ),
                     ),
                     GestureDetector(
@@ -430,7 +367,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                         alignment: Alignment.center,
                         child: const Icon(
                           Icons.close,
-                          color: _white70,
+                          color: AppColors.white70,
                           size: 18,
                         ),
                       ),
@@ -438,7 +375,7 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   ],
                 ),
               ),
-              Divider(color: _border, height: 1),
+              Divider(color: AppColors.border, height: 1),
               // scrollable body — same as before, just moved inside Dialog
               ConstrainedBox(
                 constraints: BoxConstraints(
@@ -449,12 +386,12 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      _RuleSection(
+                      RuleSection(
                         label: 'Game Rules',
                         rules: kRules.sublist(0, 5),
                       ),
                       const SizedBox(height: 20),
-                      _RuleSection(
+                      RuleSection(
                         label: 'Game Modes',
                         rules: kRules.sublist(5),
                       ),
@@ -466,69 +403,6 @@ class _HomeScreenState extends ConsumerState<HomeScreen> {
           ),
         ),
       ),
-    );
-  }
-}
-
-/// Section inside the rules modal.
-class _RuleSection extends StatelessWidget {
-  final String label;
-  final List<Rule> rules;
-
-  const _RuleSection({required this.label, required this.rules});
-
-  @override
-  Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Text(
-          label.toUpperCase(),
-          style: GoogleFonts.barlow(
-            fontSize: 11,
-            fontWeight: FontWeight.w700,
-            color: _white38,
-            letterSpacing: 1.2,
-          ),
-        ),
-        const SizedBox(height: 10),
-        ...rules.map(
-          (r) => Padding(
-            padding: const EdgeInsets.only(bottom: 14),
-            child: Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(r.icon, style: const TextStyle(fontSize: 20)),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        r.title,
-                        style: GoogleFonts.barlow(
-                          fontSize: 14,
-                          fontWeight: FontWeight.w700,
-                          color: Colors.white,
-                        ),
-                      ),
-                      const SizedBox(height: 2),
-                      Text(
-                        r.desc,
-                        style: GoogleFonts.inter(
-                          fontSize: 12.5,
-                          color: _white70,
-                          height: 1.5,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
