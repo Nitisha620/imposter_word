@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'app_view.dart';
 import 'services/session_service.dart';
+import 'theme/app_theme.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -20,6 +21,7 @@ class MyApp extends StatelessWidget {
     return MaterialApp(
       title: 'Imposter Game',
       debugShowCheckedModeBanner: false,
+      theme: AppTheme.dark,
       home: const AppView(),
     );
   }
