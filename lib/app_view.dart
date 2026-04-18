@@ -81,7 +81,7 @@ class AppView extends ConsumerWidget {
           roomState: state.roomState,
           isHost: state.isHost,
           onPlayAgain: () => ref.read(gameProvider.notifier).reset(),
-          onLeave: () => ref.read(gameProvider.notifier).reset(),
+          onLeave: () => ref.read(gameProvider.notifier).leave(),
         );
 
       default:
